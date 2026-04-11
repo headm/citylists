@@ -79,10 +79,12 @@
 		enriched = null;
 	}
 
+
 	// --- Grouping & Filtering ---
 	let groupBy = $state('Category');
-	let filterField = $state(null);
-	let filterValue = $state(null);
+	const filterFields = ['Neighborhood', 'Category', 'Type', 'Cuisine'];
+	let activeFilters = $state({ Neighborhood: new Set(), Category: new Set(), Type: new Set(), Cuisine: new Set() });
+	let expandedFilterField = $state(null);
 
 	function getGroupValue(place, field) {
 		const val = place[field];
@@ -101,23 +103,46 @@
 		return [...vals].sort();
 	}
 
-	function toggleFilter(field, value) {
-		if (filterField === field && filterValue === value) {
-			filterField = null;
-			filterValue = null;
+	function toggleFilterValue(field, value) {
+		const s = activeFilters[field];
+		if (s.has(value)) {
+			s.delete(value);
 		} else {
-			filterField = field;
-			filterValue = value;
+			s.add(value);
 		}
+		activeFilters = { ...activeFilters };
 	}
+
+	function toggleExpandField(field) {
+		expandedFilterField = expandedFilterField === field ? null : field;
+	}
+
+	function filterCount(field) {
+		return activeFilters[field]?.size || 0;
+	}
+
+	function clearFilters() {
+		activeFilters = { Neighborhood: new Set(), Category: new Set(), Type: new Set(), Cuisine: new Set() };
+	}
+
+	let hasActiveFilters = $derived(
+		filterFields.some((f) => activeFilters[f]?.size > 0)
+	);
 
 	let filteredPlaces = $derived(
 		$places.filter((p) => {
 			if (!p.Name) return false;
-			if (!filterField || !filterValue) return true;
-			const v = p[filterField];
-			if (Array.isArray(v)) return v.includes(filterValue);
-			return v === filterValue;
+			for (const field of filterFields) {
+				const selected = activeFilters[field];
+				if (!selected || selected.size === 0) continue;
+				const val = p[field];
+				if (Array.isArray(val)) {
+					if (!val.some((v) => selected.has(v))) return false;
+				} else {
+					if (!selected.has(val)) return false;
+				}
+			}
+			return true;
 		})
 	);
 
@@ -161,7 +186,7 @@
 			</select>
 		</h1>
 		<button class="add-btn" onclick={() => (showAddForm = !showAddForm)}>
-			{showAddForm ? 'Cancel' : '+'}
+			{showAddForm ? '\u00d7' : '+'}
 		</button>
 	</header>
 
@@ -194,15 +219,31 @@
 					</label>
 					<label>
 						Category
-						<input bind:value={enriched.category} />
+						<select bind:value={enriched.category}>
+							<option value="">—</option>
+							<option value="Casual">Casual</option>
+							<option value="Elevated">Elevated</option>
+							<option value="Fancy">Fancy</option>
+						</select>
 					</label>
 					<label>
 						Type
-						<input bind:value={enriched.type} />
+						<select bind:value={enriched.type}>
+							<option value="">—</option>
+							<option value="Restaurant">Restaurant</option>
+							<option value="Bar">Bar</option>
+							<option value="Bakery">Bakery</option>
+							<option value="Activity">Activity</option>
+						</select>
 					</label>
 					<label>
 						Stars (Michelin)
-						<input type="number" min="0" max="3" bind:value={enriched.stars} />
+						<select bind:value={enriched.stars}>
+							<option value={0}>None</option>
+							<option value={1}>*</option>
+							<option value={2}>**</option>
+							<option value={3}>***</option>
+						</select>
 					</label>
 					<label>
 						Description
@@ -224,24 +265,42 @@
 		<div class="group-by">
 			<span class="label">Group:</span>
 			{#each ['Category', 'Neighborhood', 'Type'] as field}
-				<button class:active={groupBy === field} onclick={() => { groupBy = field; filterField = null; filterValue = null; }}>
+				<button class:active={groupBy === field} onclick={() => { groupBy = field; }}>
 					{field}
 				</button>
 			{/each}
 		</div>
 
-		<div class="filters">
+		<div class="filter-bar">
 			<span class="label">Filter:</span>
-			{#each getFilterOptions(groupBy) as opt}
+			{#each filterFields as field}
 				<button
-					class="filter-pill"
-					class:active={filterField === groupBy && filterValue === opt}
-					onclick={() => toggleFilter(groupBy, opt)}
+					class="filter-field-btn"
+					class:active={expandedFilterField === field}
+					class:has-selections={filterCount(field) > 0}
+					onclick={() => toggleExpandField(field)}
 				>
-					{opt}
+					{field}{#if filterCount(field) > 0}<span class="badge">{filterCount(field)}</span>{/if}
 				</button>
 			{/each}
+			{#if hasActiveFilters}
+				<button class="clear-btn" onclick={clearFilters}>Clear</button>
+			{/if}
 		</div>
+
+		{#if expandedFilterField}
+			<div class="filter-options">
+				{#each getFilterOptions(expandedFilterField) as opt}
+					<button
+						class="filter-pill"
+						class:active={activeFilters[expandedFilterField]?.has(opt)}
+						onclick={() => toggleFilterValue(expandedFilterField, opt)}
+					>
+						{opt}
+					</button>
+				{/each}
+			</div>
+		{/if}
 	</div>
 
 	<section>
@@ -254,7 +313,7 @@
 				<ul class="compact-list">
 					{#each items as place}
 						<li>
-							<strong>{place.Name}</strong>{stars(place.Stars)}
+							<a class="place-name" href={`https://www.google.com/search?q=${encodeURIComponent(place.Name + ' ' + $selectedCity)}`} target="_blank" rel="noopener"><strong>{place.Name}</strong></a>{stars(place.Stars)}
 							{#if place.Description}
 								<span class="desc"> — {place.Description}</span>
 							{/if}
@@ -293,6 +352,7 @@
 		font-weight: inherit;
 		font-family: inherit;
 		border: none;
+		outline: none;
 		background: none;
 		appearance: none;
 		-webkit-appearance: none;
@@ -374,11 +434,13 @@
 		gap: 0.2rem;
 	}
 
-	.fields input {
+	.fields input,
+	.fields select {
 		padding: 0.4rem 0.5rem;
 		border: 1px solid #ccc;
 		border-radius: 6px;
 		font-size: 0.9rem;
+		background: white;
 	}
 
 	.save-btn {
@@ -429,10 +491,71 @@
 		border-color: #111;
 	}
 
-	.filters {
+	.filter-bar {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		margin-bottom: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.filter-field-btn {
+		padding: 0.25rem 0.6rem;
+		border: 1px solid #ccc;
+		border-radius: 4px;
+		background: white;
+		cursor: pointer;
+		font-size: 0.75rem;
+		color: #555;
+	}
+
+	.filter-field-btn.active {
+		border-color: #111;
+		color: #111;
+	}
+
+	.filter-field-btn.has-selections {
+		background: #111;
+		color: white;
+		border-color: #111;
+	}
+
+	.badge {
+		display: inline-block;
+		background: white;
+		color: #111;
+		font-size: 0.6rem;
+		font-weight: 600;
+		border-radius: 50%;
+		width: 1rem;
+		height: 1rem;
+		line-height: 1rem;
+		text-align: center;
+		margin-left: 0.3rem;
+	}
+
+	.clear-btn {
+		padding: 0.25rem 0.5rem;
+		border: none;
+		background: none;
+		cursor: pointer;
+		font-size: 0.7rem;
+		color: #999;
+	}
+
+	.clear-btn:hover {
+		color: #333;
+	}
+
+	.filter-options {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.3rem;
+		margin-bottom: 0.5rem;
+		padding: 0.5rem;
+		background: #fafafa;
+		border-radius: 6px;
+		border: 1px solid #eee;
 	}
 
 	.filter-pill {
@@ -472,6 +595,11 @@
 		font-size: 0.85rem;
 		line-height: 1.5;
 		margin-bottom: 0.3rem;
+	}
+
+	.place-name {
+		text-decoration: none;
+		color: inherit;
 	}
 
 	.compact-list .desc {
