@@ -8,6 +8,7 @@
 	const cities = ['San Francisco', 'New York', 'Paris', 'Tokyo'];
 
 	let showAddForm = $state(false);
+	let showFilterModal = $state(false);
 	let viewMode = $state('list');
 	let showCityPicker = $state(false);
 	let addName = $state('');
@@ -35,6 +36,12 @@ let enriched = $state(null);
 		loadPlaces($selectedCity);
 		const res = await fetch('/api/field-options');
 		if (res.ok) fieldOptions = await res.json();
+	});
+
+	$effect(() => {
+		if (browser) {
+			document.body.style.overflow = (showAddForm || showFilterModal) ? 'hidden' : '';
+		}
 	});
 
 	function selectCity(city) {
@@ -132,13 +139,11 @@ let enriched = $state(null);
 		const config = modeConfig[mode];
 		groupBy = config.defaultGroup;
 		clearFilters();
-		expandedFilterField = null;
 	}
 
 	// --- Grouping & Filtering ---
 	let groupBy = $state('Category');
 	let activeFilters = $state({ Neighborhood: new Set(), Category: new Set(), Type: new Set(), Cuisine: new Set() });
-	let expandedFilterField = $state(null);
 
 	let currentFilterFields = $derived(modeConfig[selectedMode].filterFields);
 	let currentGroupOptions = $derived(modeConfig[selectedMode].groupOptions);
@@ -170,10 +175,6 @@ let enriched = $state(null);
 		activeFilters = { ...activeFilters };
 	}
 
-	function toggleExpandField(field) {
-		expandedFilterField = expandedFilterField === field ? null : field;
-	}
-
 	function filterCount(field) {
 		return activeFilters[field]?.size || 0;
 	}
@@ -184,6 +185,10 @@ let enriched = $state(null);
 
 	let hasActiveFilters = $derived(
 		currentFilterFields.some((f) => activeFilters[f]?.size > 0)
+	);
+
+	let totalFilterCount = $derived(
+		currentFilterFields.reduce((sum, f) => sum + (activeFilters[f]?.size || 0), 0)
 	);
 
 	let filteredPlaces = $derived(
@@ -314,6 +319,10 @@ let enriched = $state(null);
 			{/if}
 		</h1>
 		<div class="header-actions">
+			<button class="add-btn" class:has-selections={hasActiveFilters} onclick={() => { showFilterModal = true; }}>
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+				{#if hasActiveFilters}<span class="header-badge">{totalFilterCount}</span>{/if}
+			</button>
 			<button class="add-btn" onclick={() => { viewMode = viewMode === 'list' ? 'map' : 'list'; }}>
 				{#if viewMode === 'list'}
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
@@ -344,37 +353,6 @@ let enriched = $state(null);
 				{#each currentGroupOptions as field}
 					<button class:active={groupBy === field} onclick={() => { groupBy = field; }}>
 						{field}
-					</button>
-				{/each}
-			</div>
-		{/if}
-
-		<div class="filter-bar">
-			<span class="label">Filter:</span>
-			{#each currentFilterFields as field}
-				<button
-					class="filter-field-btn"
-					class:active={expandedFilterField === field}
-					class:has-selections={filterCount(field) > 0}
-					onclick={() => toggleExpandField(field)}
-				>
-					{field}{#if filterCount(field) > 0}<span class="badge">{filterCount(field)}</span>{/if}
-				</button>
-			{/each}
-			{#if hasActiveFilters}
-				<button class="clear-btn" onclick={clearFilters}>Clear</button>
-			{/if}
-		</div>
-
-		{#if expandedFilterField}
-			<div class="filter-options">
-				{#each getFilterOptions(expandedFilterField) as opt}
-					<button
-						class="filter-pill"
-						class:active={activeFilters[expandedFilterField]?.has(opt)}
-						onclick={() => toggleFilterValue(expandedFilterField, opt)}
-					>
-						{opt}
 					</button>
 				{/each}
 			</div>
@@ -528,6 +506,37 @@ let enriched = $state(null);
 	</div>
 {/if}
 
+{#if showFilterModal}
+	<div class="modal-overlay">
+		<div class="modal">
+			<header>
+				<h1>Filters</h1>
+				<div class="header-actions">
+					<button class="reset-link" class:inactive={!hasActiveFilters} onclick={clearFilters}>Reset</button>
+					<button class="add-btn" onclick={() => { showFilterModal = false; }}>&times;</button>
+				</div>
+			</header>
+
+			{#each currentFilterFields as field}
+				<div class="filter-section">
+					<h3 class="filter-section-title">{field}</h3>
+					<div class="filter-options">
+						{#each getFilterOptions(field) as opt}
+							<button
+								class="filter-pill"
+								class:active={activeFilters[field]?.has(opt)}
+								onclick={() => toggleFilterValue(field, opt)}
+							>
+								{opt}
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/each}
+		</div>
+	</div>
+{/if}
+
 <style>
 	main {
 		max-width: 600px;
@@ -544,6 +553,10 @@ let enriched = $state(null);
 		margin-bottom: 0.75rem;
 	}
 
+	.modal > header {
+		margin-bottom: 1.25rem;
+	}
+
 	main > header {
 		margin-left: -8px;
 		margin-right: -8px;
@@ -552,10 +565,17 @@ let enriched = $state(null);
 	header h1 {
 		margin: 0;
 		position: relative;
+		min-width: 0;
 	}
 
 	.city-title {
 		cursor: pointer;
+		display: inline-block;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		vertical-align: bottom;
 	}
 
 	.chevron {
@@ -600,11 +620,12 @@ let enriched = $state(null);
 	.header-actions {
 		display: flex;
 		gap: 0.5rem;
+		flex-shrink: 0;
 	}
 
 	.add-btn {
-		width: 36px;
-		height: 36px;
+		width: 32px;
+		height: 32px;
 		border-radius: 50%;
 		border: 1px solid #ccc;
 		background: white;
@@ -613,6 +634,35 @@ let enriched = $state(null);
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		position: relative;
+	}
+
+	.add-btn.has-selections {
+		background: #111;
+		border-color: #111;
+		color: white;
+		stroke: white;
+	}
+
+	.header-badge {
+		position: absolute;
+		top: -4px;
+		right: -4px;
+		background: #111;
+		color: white;
+		font-size: 0.55rem;
+		font-weight: 600;
+		border-radius: 50%;
+		width: 16px;
+		height: 16px;
+		line-height: 16px;
+		text-align: center;
+		border: 2px solid white;
+	}
+
+	.add-btn.has-selections .header-badge {
+		background: white;
+		color: #111;
 	}
 
 	.modal-overlay {
@@ -750,62 +800,6 @@ let enriched = $state(null);
 		border-color: #111;
 	}
 
-	.filter-bar {
-		display: flex;
-		align-items: center;
-		gap: 0.35rem;
-		margin-bottom: 0.5rem;
-		flex-wrap: wrap;
-	}
-
-	.filter-field-btn {
-		padding: 0.35rem 0.6rem;
-		border: 1px solid #ccc;
-		border-radius: 4px;
-		background: white;
-		cursor: pointer;
-		font-size: 0.75rem;
-		color: #555;
-	}
-
-	.filter-field-btn.active {
-		border-color: #111;
-		color: #111;
-	}
-
-	.filter-field-btn.has-selections {
-		background: #111;
-		color: white;
-		border-color: #111;
-	}
-
-	.badge {
-		display: inline-block;
-		background: white;
-		color: #111;
-		font-size: 0.6rem;
-		font-weight: 600;
-		border-radius: 50%;
-		width: 1rem;
-		height: 1rem;
-		line-height: 1rem;
-		text-align: center;
-		margin-left: 0.3rem;
-	}
-
-	.clear-btn {
-		padding: 0.25rem 0.5rem;
-		border: none;
-		background: none;
-		cursor: pointer;
-		font-size: 0.7rem;
-		color: #999;
-	}
-
-	.clear-btn:hover {
-		color: #333;
-	}
-
 	.filter-options {
 		display: flex;
 		flex-wrap: wrap;
@@ -831,6 +825,35 @@ let enriched = $state(null);
 		background: #111;
 		color: white;
 		border-color: #111;
+	}
+
+	.filter-section {
+		margin-bottom: 1.25rem;
+	}
+
+	.filter-section-title {
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: #555;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		margin: 0 0 0.5rem;
+	}
+
+	.reset-link {
+		border: none;
+		background: none;
+		color: #333;
+		cursor: pointer;
+		font-size: 0.85rem;
+		text-decoration: underline;
+		font-weight: 600;
+		padding: 0;
+		margin-right: 0.5rem;
+	}
+
+	.reset-link.inactive {
+		color: #ccc;
 	}
 
 	.group-heading {
