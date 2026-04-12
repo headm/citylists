@@ -20,6 +20,18 @@
 	let userMarker;
 	let mapboxgl;
 	let mapReady = $state(false);
+	let userLat = null;
+	let userLng = null;
+
+	function isUserNearCity(cityName) {
+		if (userLat === null || userLng === null) return false;
+		const center = cityCenters[cityName] || cityCenters['San Francisco'];
+		const dist = Math.sqrt(
+			Math.pow(userLat - center.lat, 2) +
+			Math.pow(userLng - center.lng, 2)
+		);
+		return dist < 0.5;
+	}
 
 	onMount(async () => {
 		const mapboxModule = await import('mapbox-gl');
@@ -49,6 +61,9 @@
 				(pos) => {
 					const { latitude, longitude } = pos.coords;
 
+					userLat = latitude;
+					userLng = longitude;
+
 					if (!userMarker && map) {
 						const el = document.createElement('div');
 						el.style.cssText = 'width: 14px; height: 14px; background: #4285F4; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(66,133,244,0.5);';
@@ -57,13 +72,7 @@
 							.addTo(map);
 
 						// Only fly to user if they're near the selected city
-						const center = cityCenters[city] || cityCenters['San Francisco'];
-						const dist = Math.sqrt(
-							Math.pow(latitude - center.lat, 2) +
-							Math.pow(longitude - center.lng, 2)
-						);
-						// ~0.5 degrees ≈ roughly 50km — close enough to be "in the city"
-						if (dist < 0.5) {
+						if (isUserNearCity(city)) {
 							map.flyTo({ center: [longitude, latitude], zoom: 14, duration: 1500 });
 						}
 					} else if (userMarker) {
@@ -127,8 +136,12 @@
 	$effect(() => {
 		const _ = city;
 		if (map && mapReady) {
-			const center = cityCenters[city] || cityCenters['San Francisco'];
-			map.flyTo({ center: [center.lng, center.lat], zoom: center.zoom, duration: 1000 });
+			if (isUserNearCity(city)) {
+				map.flyTo({ center: [userLng, userLat], zoom: 14, duration: 1000 });
+			} else {
+				const center = cityCenters[city] || cityCenters['San Francisco'];
+				map.flyTo({ center: [center.lng, center.lat], zoom: center.zoom, duration: 1000 });
+			}
 		}
 	});
 </script>
