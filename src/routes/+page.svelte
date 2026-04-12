@@ -735,7 +735,7 @@ let enriched = $state(null);
 	}
 
 	.group-by button {
-		padding: 0.25rem 0.6rem;
+		padding: 0.35rem 0.6rem;
 		border: 1px solid #ccc;
 		border-radius: 4px;
 		background: white;
@@ -759,7 +759,7 @@ let enriched = $state(null);
 	}
 
 	.filter-field-btn {
-		padding: 0.25rem 0.6rem;
+		padding: 0.35rem 0.6rem;
 		border: 1px solid #ccc;
 		border-radius: 4px;
 		background: white;
@@ -818,7 +818,7 @@ let enriched = $state(null);
 	}
 
 	.filter-pill {
-		padding: 0.2rem 0.5rem;
+		padding: 0.3rem 0.6rem;
 		border: 1px solid #ddd;
 		border-radius: 12px;
 		background: white;
