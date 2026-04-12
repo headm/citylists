@@ -1,6 +1,7 @@
 <script>
 	import { selectedCity, places } from '$lib/stores.js';
 	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import MapView from '$lib/components/MapView.svelte';
 
 	const cities = ['San Francisco', 'New York', 'Paris', 'Tokyo'];
@@ -503,11 +504,13 @@
 	{/snippet}
 
 	{#if viewMode === 'map'}
-		<MapView
-			places={filteredPlaces}
-			accessToken={import.meta.env.VITE_MAPBOX_TOKEN}
-			city={$selectedCity}
-		/>
+		{#if browser}
+			<MapView
+				places={filteredPlaces}
+				accessToken={import.meta.env.VITE_MAPBOX_TOKEN}
+				city={$selectedCity}
+			/>
+		{/if}
 	{:else}
 		<section>
 			{#if filteredPlaces.length === 0}
