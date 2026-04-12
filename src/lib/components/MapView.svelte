@@ -35,23 +35,38 @@
 	}
 
 	function placesToGeoJSON(places) {
+		const seen = new Map();
 		return {
 			type: 'FeatureCollection',
 			features: places
 				.filter((p) => p.Lat && p.Lng)
-				.map((p) => ({
-					type: 'Feature',
-					properties: {
-						name: p.Name,
-						stars: p.Stars || 0,
-						description: p.Description || '',
-						id: p.id
-					},
-					geometry: {
-						type: 'Point',
-						coordinates: [p.Lng, p.Lat]
+				.map((p) => {
+					let lng = p.Lng;
+					let lat = p.Lat;
+					// Jitter co-located points so they don't stack
+					const key = lat.toFixed(4) + ',' + lng.toFixed(4);
+					const count = seen.get(key) || 0;
+					seen.set(key, count + 1);
+					if (count > 0) {
+						const angle = (count * 137.5) * Math.PI / 180;
+						const radius = 0.0003 * count;
+						lat += Math.sin(angle) * radius;
+						lng += Math.cos(angle) * radius;
 					}
-				}))
+					return {
+						type: 'Feature',
+						properties: {
+							name: p.Name,
+							stars: p.Stars || 0,
+							description: p.Description || '',
+							id: p.id
+						},
+						geometry: {
+							type: 'Point',
+							coordinates: [lng, lat]
+						}
+					};
+				})
 		};
 	}
 
