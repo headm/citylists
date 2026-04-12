@@ -406,7 +406,7 @@ let enriched = $state(null);
 	{:else}
 		<section>
 			{#if filteredPlaces.length === 0}
-				<p>No places yet.</p>
+				<div class="empty-state">No places yet</div>
 			{:else}
 				{@const groups = groupedPlaces()}
 				{#each Object.entries(groups) as [group, items]}
@@ -584,9 +584,9 @@ let enriched = $state(null);
 	}
 
 	.chevron {
-		font-size: 0.5em;
+		font-size: 0.75em;
 		color: #888;
-		vertical-align: middle;
+		vertical-align: 0.1em;
 	}
 
 	.city-dropdown {
@@ -813,7 +813,7 @@ let enriched = $state(null);
 	}
 
 	.group-chevron {
-		font-size: 0.7em;
+		font-size: 0.85em;
 		vertical-align: baseline;
 	}
 
@@ -913,6 +913,16 @@ let enriched = $state(null);
 
 	.reset-link.inactive {
 		color: #ccc;
+	}
+
+	.empty-state {
+		background: #ececec;
+		border-radius: 12px;
+		color: #999;
+		text-align: center;
+		padding: 4rem 1rem;
+		font-size: 0.9rem;
+		margin: 0.5rem -8px 0;
 	}
 
 	.group-heading {
