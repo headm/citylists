@@ -1,3 +1,7 @@
+<svelte:head>
+	<link href="https://api.mapbox.com/mapbox-gl-js/v3.21.0/mapbox-gl.css" rel="stylesheet" />
+</svelte:head>
+
 <script>
 	import { onMount, onDestroy } from 'svelte';
 
@@ -13,49 +17,68 @@
 	let mapContainer;
 	let map;
 	let markers = [];
+	let userMarker;
 	let mapboxgl;
+	let mapReady = false;
 
 	onMount(async () => {
 		mapboxgl = (await import('mapbox-gl')).default;
-		await import('mapbox-gl/dist/mapbox-gl.css');
-
 		mapboxgl.accessToken = accessToken;
 
-		const center = cityCenters[city] || cityCenters['San Francisco'];
+		const defaultCenter = cityCenters[city] || cityCenters['San Francisco'];
 
 		map = new mapboxgl.Map({
 			container: mapContainer,
 			style: 'mapbox://styles/mapbox/light-v11',
-			center: [center.lng, center.lat],
-			zoom: center.zoom
+			center: [defaultCenter.lng, defaultCenter.lat],
+			zoom: defaultCenter.zoom
 		});
 
 		map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-		map.addControl(new mapboxgl.GeolocateControl({
-			positionOptions: { enableHighAccuracy: true },
-			trackUserLocation: true,
-			showUserHeading: true
-		}), 'top-right');
 
 		map.on('load', () => {
+			mapReady = true;
 			updateMarkers();
 		});
+
+		// Get user location via browser API and show blue dot
+		if ('geolocation' in navigator) {
+			navigator.geolocation.watchPosition(
+				(pos) => {
+					const { latitude, longitude } = pos.coords;
+
+					if (!userMarker && map) {
+						const el = document.createElement('div');
+						el.style.cssText = 'width: 14px; height: 14px; background: #4285F4; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(66,133,244,0.5);';
+						userMarker = new mapboxgl.Marker({ element: el })
+							.setLngLat([longitude, latitude])
+							.addTo(map);
+						map.flyTo({ center: [longitude, latitude], zoom: 14, duration: 1500 });
+					} else if (userMarker) {
+						userMarker.setLngLat([longitude, latitude]);
+					}
+				},
+				() => {
+					// Location unavailable (e.g. desktop without GPS) — stay on city center
+				},
+				{ enableHighAccuracy: true, timeout: 5000 }
+			);
+		}
 	});
 
 	onDestroy(() => {
 		markers.forEach((m) => m.remove());
 		markers = [];
+		if (userMarker) userMarker.remove();
 		if (map) map.remove();
 	});
 
 	function updateMarkers() {
 		if (!map || !mapboxgl) return;
 
-		// Remove existing markers
 		markers.forEach((m) => m.remove());
 		markers = [];
 
-		// Add new markers
 		for (const place of places) {
 			if (!place.Lat || !place.Lng) continue;
 
@@ -84,14 +107,12 @@
 	}
 
 	$effect(() => {
-		// React to places changes
 		places;
-		updateMarkers();
+		if (mapReady) updateMarkers();
 	});
 
 	$effect(() => {
-		// React to city changes
-		if (map && city) {
+		if (map && mapReady && city) {
 			const center = cityCenters[city] || cityCenters['San Francisco'];
 			map.flyTo({ center: [center.lng, center.lat], zoom: center.zoom, duration: 1000 });
 		}
