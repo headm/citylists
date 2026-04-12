@@ -20,8 +20,9 @@
 	let userMarker;
 	let mapboxgl;
 	let mapReady = $state(false);
-	let userLat = null;
-	let userLng = null;
+	let userLat = $state(null);
+	let userLng = $state(null);
+	let watchId = null;
 
 	function isUserNearCity(cityName) {
 		if (userLat === null || userLng === null) return false;
@@ -55,43 +56,47 @@
 			mapReady = true;
 		});
 
-		// Get user location via browser API and show blue dot
+		// Get user location via browser API
 		if ('geolocation' in navigator) {
-			navigator.geolocation.watchPosition(
+			watchId = navigator.geolocation.watchPosition(
 				(pos) => {
-					const { latitude, longitude } = pos.coords;
-
-					userLat = latitude;
-					userLng = longitude;
-
-					if (!userMarker && map) {
-						const el = document.createElement('div');
-						el.style.cssText = 'width: 14px; height: 14px; background: #4285F4; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(66,133,244,0.5);';
-						userMarker = new mapboxgl.Marker({ element: el })
-							.setLngLat([longitude, latitude])
-							.addTo(map);
-
-						// Only fly to user if they're near the selected city
-						if (isUserNearCity(city)) {
-							map.flyTo({ center: [longitude, latitude], zoom: 14, duration: 1500 });
-						}
-					} else if (userMarker) {
-						userMarker.setLngLat([longitude, latitude]);
-					}
+					userLat = pos.coords.latitude;
+					userLng = pos.coords.longitude;
 				},
-				() => {
-					// Location unavailable (e.g. desktop without GPS) — stay on city center
-				},
+				() => {},
 				{ enableHighAccuracy: true, timeout: 5000 }
 			);
 		}
 	});
 
 	onDestroy(() => {
+		if (watchId !== null) navigator.geolocation.clearWatch(watchId);
 		markers.forEach((m) => m.remove());
 		markers = [];
 		if (userMarker) userMarker.remove();
 		if (map) map.remove();
+	});
+
+	// React to user location updates
+	let hasFlownToUser = false;
+	$effect(() => {
+		if (!map || !mapboxgl || userLat === null || userLng === null) return;
+
+		if (!userMarker) {
+			const el = document.createElement('div');
+			el.style.cssText = 'width: 14px; height: 14px; background: #4285F4; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(66,133,244,0.5);';
+			userMarker = new mapboxgl.Marker({ element: el })
+				.setLngLat([userLng, userLat])
+				.addTo(map);
+
+			// Fly to user on first fix, if near the selected city
+			if (!hasFlownToUser && isUserNearCity(city)) {
+				map.flyTo({ center: [userLng, userLat], zoom: 14, duration: 1500 });
+				hasFlownToUser = true;
+			}
+		} else {
+			userMarker.setLngLat([userLng, userLat]);
+		}
 	});
 
 	function updateMarkers() {
