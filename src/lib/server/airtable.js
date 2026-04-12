@@ -36,6 +36,34 @@ export async function fetchPlaces(city) {
 }
 
 /**
+ * Fetch distinct neighborhood values for a given city from existing records.
+ */
+export async function fetchNeighborhoodsForCity(city) {
+	const url = new URL(BASE_URL);
+	url.searchParams.set('filterByFormula', `{City} = "${city}"`);
+	url.searchParams.set('fields[]', 'Neighborhood');
+	url.searchParams.set('pageSize', '100');
+
+	const neighborhoods = new Set();
+	let offset;
+
+	do {
+		if (offset) url.searchParams.set('offset', offset);
+		const response = await fetch(url, { headers });
+		if (!response.ok) break;
+		const data = await response.json();
+		data.records.forEach((r) => {
+			const val = r.fields.Neighborhood;
+			if (Array.isArray(val)) val.forEach((v) => neighborhoods.add(v));
+			else if (val) neighborhoods.add(val);
+		});
+		offset = data.offset;
+	} while (offset);
+
+	return [...neighborhoods].sort();
+}
+
+/**
  * Fetch select field options from the Airtable table schema.
  * Returns an object like { Neighborhood: ["Mission", ...], Cuisine: [...], ... }
  */

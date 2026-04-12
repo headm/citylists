@@ -30,6 +30,14 @@
 		return {};
 	}
 	let enriched = $state(null);
+	let fieldOptions = $state({ Category: [], Type: [] });
+	let duplicateWarning = $state(null);
+
+	function checkDuplicate() {
+		const name = addName.trim().toLowerCase();
+		const match = $places.find((p) => p.Name && p.Name.toLowerCase() === name);
+		duplicateWarning = match ? match.Name : null;
+	}
 
 	async function loadPlaces(city) {
 		const res = await fetch(`/api/places?city=${encodeURIComponent(city)}`);
@@ -38,8 +46,10 @@
 		}
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		loadPlaces($selectedCity);
+		const res = await fetch('/api/field-options');
+		if (res.ok) fieldOptions = await res.json();
 	});
 
 	function selectCity(city) {
@@ -58,6 +68,10 @@
 			});
 			if (res.ok) {
 				enriched = await res.json();
+				if (enriched.correctedName) {
+					addName = enriched.correctedName;
+				}
+				checkDuplicate();
 			}
 		} finally {
 			enriching = false;
@@ -99,6 +113,7 @@
 		showAddForm = false;
 		addName = '';
 		enriched = null;
+		duplicateWarning = null;
 	}
 
 
@@ -311,7 +326,7 @@
 				{/each}
 			</select>
 		</h1>
-		<button class="add-btn" onclick={() => (showAddForm = !showAddForm)}>
+		<button class="add-btn" onclick={() => { if (showAddForm) { resetForm(); } else { showAddForm = true; } }}>
 			{showAddForm ? '\u00d7' : '+'}
 		</button>
 	</header>
@@ -330,6 +345,10 @@
 			</div>
 			<p class="city-label">City: {$selectedCity}</p>
 
+			{#if duplicateWarning}
+				<p class="duplicate-warning">⚠ "{duplicateWarning}" already exists in your list</p>
+			{/if}
+
 			{#if enriched}
 				<div class="fields">
 					<label>
@@ -347,19 +366,18 @@
 						Category
 						<select bind:value={enriched.category}>
 							<option value="">—</option>
-							<option value="Casual">Casual</option>
-							<option value="Elevated">Elevated</option>
-							<option value="Fancy">Fancy</option>
+							{#each fieldOptions.Category || [] as opt}
+								<option value={opt}>{opt}</option>
+							{/each}
 						</select>
 					</label>
 					<label>
 						Type
 						<select bind:value={enriched.type}>
 							<option value="">—</option>
-							<option value="Restaurant">Restaurant</option>
-							<option value="Bar">Bar</option>
-							<option value="Bakery">Bakery</option>
-							<option value="Activity">Activity</option>
+							{#each fieldOptions.Type || [] as opt}
+								<option value={opt}>{opt}</option>
+							{/each}
 						</select>
 					</label>
 					<label>
@@ -577,6 +595,15 @@
 	.row button:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	.duplicate-warning {
+		margin: 0.5rem 0 0;
+		padding: 0.4rem 0.6rem;
+		background: #fff3cd;
+		color: #856404;
+		border-radius: 6px;
+		font-size: 0.8rem;
 	}
 
 	.city-label {

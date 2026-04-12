@@ -1,9 +1,56 @@
 import { env } from '$env/dynamic/private';
 
 /**
+ * Search the web for information about a place.
+ * Returns a summary of the top results.
+ */
+async function searchPlace(name, city) {
+	const query = `${name} ${city} restaurant review`;
+	const url = `https://www.googleapis.com/customsearch/v1?key=${env.GOOGLE_SEARCH_API_KEY}&cx=${env.GOOGLE_SEARCH_CX}&q=${encodeURIComponent(query)}&num=3`;
+
+	try {
+		const response = await fetch(url);
+		if (!response.ok) return '';
+		const data = await response.json();
+		if (!data.items?.length) return '';
+
+		return data.items
+			.map((item) => `${item.title}: ${item.snippet}`)
+			.join('\n');
+	} catch {
+		return '';
+	}
+}
+
+/**
+ * Fallback: use Claude itself to do a web search via tool use,
+ * or just do a simple fetch of a search results page.
+ */
+async function scrapeSearchResults(name, city) {
+	const query = encodeURIComponent(`${name} ${city}`);
+	try {
+		const response = await fetch(`https://html.duckduckgo.com/html/?q=${query}`, {
+			headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CityLists/1.0)' }
+		});
+		if (!response.ok) return '';
+		const html = await response.text();
+
+		// Extract result snippets from DuckDuckGo HTML
+		const snippets = [];
+		const resultRegex = /<a class="result__snippet"[^>]*>(.*?)<\/a>/gs;
+		let match;
+		while ((match = resultRegex.exec(html)) !== null && snippets.length < 5) {
+			snippets.push(match[1].replace(/<\/?b>/g, '').replace(/&amp;/g, '&').replace(/&#x27;/g, "'").replace(/&quot;/g, '"'));
+		}
+		return snippets.join('\n');
+	} catch {
+		return '';
+	}
+}
+
+/**
  * Call Claude API to enrich a place name + city into structured fields.
- * `fieldOptions` is an object of existing Airtable select options, e.g.
- * { Category: ["Casual", "Elevated"], Type: ["Restaurant", "Bar"], Neighborhood: [...], Cuisine: [...] }
+ * First searches the web for real information about the place.
  */
 export async function enrichPlace(name, city, fieldOptions = {}) {
 	const categoryOpts = fieldOptions.Category || [];
@@ -11,15 +58,29 @@ export async function enrichPlace(name, city, fieldOptions = {}) {
 	const neighborhoodOpts = fieldOptions.Neighborhood || [];
 	const cuisineOpts = fieldOptions.Cuisine || [];
 
+	// Try Google Custom Search first, fall back to DuckDuckGo scrape
+	let searchContext = '';
+	if (env.GOOGLE_SEARCH_API_KEY && env.GOOGLE_SEARCH_CX) {
+		searchContext = await searchPlace(name, city);
+	}
+	if (!searchContext) {
+		searchContext = await scrapeSearchResults(name, city);
+	}
+
+	const contextBlock = searchContext
+		? `\nHere is real information from the web about this place:\n${searchContext}\n\nUse this information to accurately classify the place.\n`
+		: '';
+
 	const prompt = `Given the restaurant/place "${name}" in ${city}, return a JSON object with these fields:
-- neighborhood (string — the actual neighborhood where this place is located. Only reuse one of these existing values if it is genuinely correct: ${JSON.stringify(neighborhoodOpts)}. Otherwise, use the real neighborhood name.)
+- correctedName (string — the correct, properly spelled, title-cased name of this place. Fix any typos or casing issues from the input.)
+- neighborhood (string — the neighborhood in ${city} where this place is located. You MUST choose from this list if any match: ${JSON.stringify(neighborhoodOpts)}. Only use a new value if the place is genuinely in a neighborhood not on this list. Use "" if unsure.)
 - cuisine (array of strings — the actual cuisine(s) this place serves, e.g. ["Japanese", "Sushi"] or ["Italian"]. Only reuse from these existing values if genuinely correct: ${JSON.stringify(cuisineOpts)}. Otherwise, use accurate cuisine names.)
 - category (MUST be exactly one of: ${JSON.stringify(categoryOpts)})
 - type (MUST be exactly one of: ${JSON.stringify(typeOpts)})
 - stars (integer 0-3 — number of Michelin stars. Use 0 if the place has no Michelin stars or you are unsure.)
 - mode (MUST be exactly one of: "Food & Drink", "Things to Do")
-- description (one sentence that captures what makes this place distinctive — a signature dish, the vibe, what it's known for. Do NOT just restate the cuisine or category.)
-
+- description (one sentence, max 160 characters, that captures what makes this place distinctive — a signature dish, the vibe, what it's known for. Do NOT just restate the cuisine or category.)
+${contextBlock}
 Return ONLY valid JSON, no markdown or preamble.`;
 
 	const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -30,7 +91,7 @@ Return ONLY valid JSON, no markdown or preamble.`;
 			'anthropic-version': '2023-06-01'
 		},
 		body: JSON.stringify({
-			model: 'claude-haiku-4-5-20251001',
+			model: 'claude-sonnet-4-6',
 			max_tokens: 256,
 			messages: [{ role: 'user', content: prompt }]
 		})

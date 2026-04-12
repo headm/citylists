@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { fetchFieldOptions } from '$lib/server/airtable.js';
+import { fetchFieldOptions, fetchNeighborhoodsForCity } from '$lib/server/airtable.js';
 import { enrichPlace } from '$lib/server/enrich.js';
 
 export async function POST({ request }) {
@@ -10,7 +10,12 @@ export async function POST({ request }) {
 	}
 
 	try {
-		const fieldOptions = await fetchFieldOptions();
+		const [fieldOptions, cityNeighborhoods] = await Promise.all([
+			fetchFieldOptions(),
+			fetchNeighborhoodsForCity(city)
+		]);
+		// Override global neighborhoods with city-specific ones
+		fieldOptions.Neighborhood = cityNeighborhoods;
 		const result = await enrichPlace(name, city, fieldOptions);
 		return json(result);
 	} catch (err) {
