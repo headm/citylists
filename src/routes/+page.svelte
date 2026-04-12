@@ -557,8 +557,9 @@
 
 	header h1 {
 		margin: 0;
+		flex: 1;
+		min-width: 0;
 	}
-
 
 	header h1 select {
 		font-size: inherit;
@@ -570,7 +571,7 @@
 		cursor: pointer;
 		padding: 0;
 		margin: 0;
-		max-width: 70vw;
+		width: 100%;
 	}
 
 	.header-actions {
