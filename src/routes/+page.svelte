@@ -532,14 +532,9 @@ let enriched = $state(null);
 	main {
 		max-width: 600px;
 		margin: 0 auto;
-		padding: 0;
-		padding-top: env(safe-area-inset-top, 0px);
+		padding: 1rem;
+		padding-top: calc(1rem + env(safe-area-inset-top, 0px));
 		font-family: system-ui, -apple-system, sans-serif;
-	}
-
-	header, .controls, .compact-list {
-		padding-left: 1rem;
-		padding-right: 1rem;
 	}
 
 	header {
@@ -547,7 +542,6 @@ let enriched = $state(null);
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 0.75rem;
-		padding-top: 1rem;
 	}
 
 	header h1 {
@@ -837,11 +831,20 @@ let enriched = $state(null);
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		margin: 0.75rem 0 0.25rem;
+		margin: 0.75rem -1rem 0.25rem;
 		padding: 0.4rem 1rem;
 		position: sticky;
 		top: env(safe-area-inset-top, 0px);
 		z-index: 5;
+	}
+
+	@media (max-width: 600px) {
+		.group-heading, .subsection-heading {
+			margin-left: calc(-1rem - env(safe-area-inset-left, 0px));
+			margin-right: calc(-1rem - env(safe-area-inset-right, 0px));
+			padding-left: calc(1rem + env(safe-area-inset-left, 0px));
+			padding-right: calc(1rem + env(safe-area-inset-right, 0px));
+		}
 	}
 
 	.group-heading {
@@ -854,7 +857,7 @@ let enriched = $state(null);
 		font-weight: 600;
 		color: #5a7a9b;
 		background: #eef3f8;
-		margin: 0.4rem 0 0.15rem;
+		margin: 0.4rem -1rem 0.15rem;
 		padding: 0.25rem 1rem;
 	}
 
