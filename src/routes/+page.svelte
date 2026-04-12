@@ -624,13 +624,13 @@ let enriched = $state(null);
 
 	.header-actions {
 		display: flex;
-		gap: 0.5rem;
+		gap: 0.35rem;
 		flex-shrink: 0;
 	}
 
 	.add-btn {
-		width: 32px;
-		height: 32px;
+		width: 34px;
+		height: 34px;
 		border-radius: 50%;
 		border: 1px solid #ccc;
 		background: white;
@@ -784,13 +784,13 @@ let enriched = $state(null);
 	}
 
 	.controls .label {
-		font-size: 0.8rem;
+		font-size: 0.9rem;
 		color: #888;
 		margin-right: 0.15rem;
 	}
 
 	.group-by button {
-		padding: 0.35rem 0.6rem;
+		padding: 0.45rem 0.75rem;
 		border: 1px solid #ccc;
 		border-radius: 4px;
 		background: white;
@@ -820,7 +820,7 @@ let enriched = $state(null);
 
 	.group-picker {
 		cursor: pointer;
-		font-size: 0.8rem;
+		font-size: 0.9rem;
 		font-weight: 600;
 		color: #333;
 		position: relative;
