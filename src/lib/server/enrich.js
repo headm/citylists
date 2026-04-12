@@ -110,5 +110,29 @@ Return ONLY valid JSON, no markdown or preamble.`;
 		text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
 	}
 
-	return JSON.parse(text);
+	const result = JSON.parse(text);
+
+	// Geocode via Mapbox
+	if (env.MAPBOX_ACCESS_TOKEN) {
+		const placeName = result.correctedName || name;
+		const neighborhood = result.neighborhood || '';
+		const query = `${placeName}, ${neighborhood}, ${city}`.replace(/,\s*,/g, ',');
+		try {
+			const geoRes = await fetch(
+				`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${env.MAPBOX_ACCESS_TOKEN}&limit=1`
+			);
+			if (geoRes.ok) {
+				const geoData = await geoRes.json();
+				if (geoData.features?.length > 0) {
+					const [lng, lat] = geoData.features[0].center;
+					result.lat = lat;
+					result.lng = lng;
+				}
+			}
+		} catch {
+			// Geocoding failure is non-fatal
+		}
+	}
+
+	return result;
 }

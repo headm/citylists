@@ -1,10 +1,12 @@
 <script>
 	import { selectedCity, places } from '$lib/stores.js';
 	import { onMount } from 'svelte';
+	import MapView from '$lib/components/MapView.svelte';
 
 	const cities = ['San Francisco', 'New York', 'Paris', 'Tokyo'];
 
 	let showAddForm = $state(false);
+	let viewMode = $state('list');
 	let addName = $state('');
 	let enriching = $state(false);
 	let saving = $state(false);
@@ -92,7 +94,9 @@
 				Type: enriched.type || '',
 				Description: enriched.description || '',
 				Stars: enriched.stars || 0,
-				URL: enriched.url || ''
+				URL: enriched.url || '',
+				Lat: enriched.lat || null,
+				Lng: enriched.lng || null
 			};
 			const res = await fetch('/api/places', {
 				method: 'POST',
@@ -326,9 +330,18 @@
 				{/each}
 			</select>
 		</h1>
-		<button class="add-btn" onclick={() => { if (showAddForm) { resetForm(); } else { showAddForm = true; } }}>
-			{showAddForm ? '\u00d7' : '+'}
-		</button>
+		<div class="header-actions">
+			<button class="add-btn" onclick={() => { viewMode = viewMode === 'list' ? 'map' : 'list'; }}>
+				{#if viewMode === 'list'}
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+				{:else}
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+				{/if}
+			</button>
+			<button class="add-btn" onclick={() => { if (showAddForm) { resetForm(); } else { showAddForm = true; } }}>
+				{showAddForm ? '\u00d7' : '+'}
+			</button>
+		</div>
 	</header>
 
 	{#if showAddForm}
@@ -415,14 +428,16 @@
 			{/each}
 		</div>
 
-		<div class="group-by">
-			<span class="label">Group:</span>
-			{#each currentGroupOptions as field}
-				<button class:active={groupBy === field} onclick={() => { groupBy = field; }}>
-					{field}
-				</button>
-			{/each}
-		</div>
+		{#if viewMode === 'list'}
+			<div class="group-by">
+				<span class="label">Group:</span>
+				{#each currentGroupOptions as field}
+					<button class:active={groupBy === field} onclick={() => { groupBy = field; }}>
+						{field}
+					</button>
+				{/each}
+			</div>
+		{/if}
 
 		<div class="filter-bar">
 			<span class="label">Filter:</span>
@@ -487,30 +502,38 @@
 		</ul>
 	{/snippet}
 
-	<section>
-		{#if filteredPlaces.length === 0}
-			<p>No places yet.</p>
-		{:else}
-			{@const groups = groupedPlaces()}
-			{#each Object.entries(groups) as [group, items]}
-				<h3 class="group-heading">{group}</h3>
-				{#if selectedMode === 'All'}
-					{@const foodItems = items.filter(p => p.Mode === 'Food & Drink')}
-					{@const activityItems = items.filter(p => p.Mode === 'Things to Do')}
-					{#if activityItems.length > 0}
-						<h4 class="subsection-heading">Things to Do</h4>
-						{@render placeList(activityItems)}
+	{#if viewMode === 'map'}
+		<MapView
+			places={filteredPlaces}
+			accessToken={import.meta.env.VITE_MAPBOX_TOKEN}
+			city={$selectedCity}
+		/>
+	{:else}
+		<section>
+			{#if filteredPlaces.length === 0}
+				<p>No places yet.</p>
+			{:else}
+				{@const groups = groupedPlaces()}
+				{#each Object.entries(groups) as [group, items]}
+					<h3 class="group-heading">{group}</h3>
+					{#if selectedMode === 'All'}
+						{@const foodItems = items.filter(p => p.Mode === 'Food & Drink')}
+						{@const activityItems = items.filter(p => p.Mode === 'Things to Do')}
+						{#if activityItems.length > 0}
+							<h4 class="subsection-heading">Things to Do</h4>
+							{@render placeList(activityItems)}
+						{/if}
+						{#if foodItems.length > 0}
+							<h4 class="subsection-heading">Food & Drink</h4>
+							{@render placeList(foodItems)}
+						{/if}
+					{:else}
+						{@render placeList(items)}
 					{/if}
-					{#if foodItems.length > 0}
-						<h4 class="subsection-heading">Food & Drink</h4>
-						{@render placeList(foodItems)}
-					{/if}
-				{:else}
-					{@render placeList(items)}
-				{/if}
-			{/each}
-		{/if}
-	</section>
+				{/each}
+			{/if}
+		</section>
+	{/if}
 </main>
 
 <style>
@@ -546,6 +569,11 @@
 		margin-left: -3px;
 		text-indent: -1px;
 		width: fit-content;
+	}
+
+	.header-actions {
+		display: flex;
+		gap: 0.5rem;
 	}
 
 	.add-btn {
