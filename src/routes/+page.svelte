@@ -838,7 +838,7 @@ let enriched = $state(null);
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		margin: 0.75rem -1rem 0.25rem;
+		margin: 0.75rem calc(-1rem - 8px) 0.25rem;
 		padding: 0.4rem 1rem;
 		position: sticky;
 		top: env(safe-area-inset-top, 0px);
@@ -847,8 +847,8 @@ let enriched = $state(null);
 
 	@media (max-width: 600px) {
 		.group-heading, .subsection-heading {
-			margin-left: calc(-1rem - env(safe-area-inset-left, 0px));
-			margin-right: calc(-1rem - env(safe-area-inset-right, 0px));
+			margin-left: calc(-1rem - 8px - env(safe-area-inset-left, 0px));
+			margin-right: calc(-1rem - 8px - env(safe-area-inset-right, 0px));
 			padding-left: calc(1rem + env(safe-area-inset-left, 0px));
 			padding-right: calc(1rem + env(safe-area-inset-right, 0px));
 		}
@@ -864,7 +864,7 @@ let enriched = $state(null);
 		font-weight: 600;
 		color: #5a7a9b;
 		background: #eef3f8;
-		margin: 0.4rem -1rem 0.15rem;
+		margin: 0.4rem calc(-1rem - 8px) 0.15rem;
 		padding: 0.25rem 1rem;
 	}
 
