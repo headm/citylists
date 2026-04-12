@@ -31,18 +31,20 @@ async function fetchRecords() {
 	return records;
 }
 
-const cityProximity = {
-	'San Francisco': '-122.44,37.76',
-	'New York': '-74.00,40.71',
-	'Paris': '2.35,48.86',
-	'Tokyo': '139.69,35.68'
+const cityConfig = {
+	'San Francisco': { proximity: '-122.44,37.76', bbox: '-122.55,37.70,-122.35,37.85' },
+	'New York': { proximity: '-74.00,40.71', bbox: '-74.10,40.60,-73.85,40.85' },
+	'Paris': { proximity: '2.35,48.86', bbox: '2.20,48.80,2.50,48.95' },
+	'Tokyo': { proximity: '139.69,35.68', bbox: '139.50,35.50,139.95,35.85' }
 };
 
 async function geocode(name, neighborhood, city) {
-	const proximity = cityProximity[city] || '';
+	const config = cityConfig[city] || {};
+	const proximityParam = config.proximity ? `&proximity=${config.proximity}` : '';
+	const bboxParam = config.bbox ? `&bbox=${config.bbox}` : '';
 
-	// Searchbox API with POI type — best for finding actual businesses
-	const url = `https://api.mapbox.com/search/searchbox/v1/forward?q=${encodeURIComponent(name)}&access_token=${MAPBOX}&limit=1&types=poi&language=en${proximity ? '&proximity=' + proximity : ''}`;
+	// Searchbox API with POI type + bbox to constrain to city
+	const url = `https://api.mapbox.com/search/searchbox/v1/forward?q=${encodeURIComponent(name)}&access_token=${MAPBOX}&limit=1&types=poi&language=en${proximityParam}${bboxParam}`;
 	const res = await fetch(url);
 	if (res.ok) {
 		const data = await res.json();
@@ -52,9 +54,9 @@ async function geocode(name, neighborhood, city) {
 		}
 	}
 
-	// Fallback: v5 geocoding with full context
+	// Fallback: v5 geocoding with full context + bbox
 	const parts = [name, neighborhood, city].filter(Boolean);
-	const fallbackUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(parts.join(', '))}.json?access_token=${MAPBOX}&limit=1${proximity ? '&proximity=' + proximity : ''}`;
+	const fallbackUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(parts.join(', '))}.json?access_token=${MAPBOX}&limit=1${proximityParam}${config.bbox ? '&bbox=' + config.bbox : ''}`;
 	const fbRes = await fetch(fallbackUrl);
 	if (!fbRes.ok) return null;
 	const fbData = await fbRes.json();

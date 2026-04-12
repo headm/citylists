@@ -115,16 +115,17 @@ Return ONLY valid JSON, no markdown or preamble.`;
 	// Geocode via Mapbox Searchbox API
 	if (env.MAPBOX_ACCESS_TOKEN) {
 		const placeName = result.correctedName || name;
-		const cityCenter = {
-			'San Francisco': '-122.44,37.76',
-			'New York': '-74.00,40.71',
-			'Paris': '2.35,48.86',
-			'Tokyo': '139.69,35.68'
-		}[city] || '';
-		const proximity = cityCenter ? `&proximity=${cityCenter}` : '';
+		const cityGeo = {
+			'San Francisco': { proximity: '-122.44,37.76', bbox: '-122.55,37.70,-122.35,37.85' },
+			'New York': { proximity: '-74.00,40.71', bbox: '-74.10,40.60,-73.85,40.85' },
+			'Paris': { proximity: '2.35,48.86', bbox: '2.20,48.80,2.50,48.95' },
+			'Tokyo': { proximity: '139.69,35.68', bbox: '139.50,35.50,139.95,35.85' }
+		}[city] || {};
+		const proximity = cityGeo.proximity ? `&proximity=${cityGeo.proximity}` : '';
+		const bbox = cityGeo.bbox ? `&bbox=${cityGeo.bbox}` : '';
 		try {
 			const geoRes = await fetch(
-				`https://api.mapbox.com/search/searchbox/v1/forward?q=${encodeURIComponent(placeName)}&access_token=${env.MAPBOX_ACCESS_TOKEN}&limit=1&types=poi&language=en${proximity}`
+				`https://api.mapbox.com/search/searchbox/v1/forward?q=${encodeURIComponent(placeName)}&access_token=${env.MAPBOX_ACCESS_TOKEN}&limit=1&types=poi&language=en${proximity}${bbox}`
 			);
 			if (geoRes.ok) {
 				const geoData = await geoRes.json();
