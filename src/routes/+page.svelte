@@ -818,7 +818,7 @@ let enriched = $state(null);
 		margin: 0.75rem -1rem 0.25rem;
 		padding: 0.4rem 1rem;
 		position: sticky;
-		top: 0;
+		top: env(safe-area-inset-top, 0px);
 		z-index: 5;
 	}
 
