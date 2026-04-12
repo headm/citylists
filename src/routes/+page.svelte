@@ -17,7 +17,8 @@
 	let lastScrollY = 0;
 	let scrollAnchor = 0;
 	let lastDirection = 'up';
-	let transitioning = false;
+	let transitioning = $state(false);
+	let controlsSettled = $derived(controlsVisible && !transitioning);
 	let addName = $state('');
 	let enriching = $state(false);
 	let saving = $state(false);
@@ -395,7 +396,7 @@ let enriched = $state(null);
 			</div>
 		</header>
 
-		<div class="controls-wrapper" class:controls-hidden={!controlsVisible}>
+		<div class="controls-wrapper" class:controls-hidden={!controlsVisible} class:controls-settled={controlsSettled}>
 			<div class="controls">
 				<div class="group-by">
 					{#each modes as mode}
@@ -841,8 +842,13 @@ let enriched = $state(null);
 	.controls-wrapper {
 		display: grid;
 		grid-template-rows: 1fr;
-		padding-bottom: 0.75rem;
+		padding-bottom: 1rem;
+		overflow: hidden;
 		transition: grid-template-rows 0.25s ease, padding-bottom 0.25s ease;
+	}
+
+	.controls-wrapper.controls-settled {
+		overflow: visible;
 	}
 
 	.controls-wrapper.controls-hidden {
@@ -851,7 +857,8 @@ let enriched = $state(null);
 	}
 
 	.controls {
-		overflow: hidden;
+		overflow: visible;
+		min-height: 0;
 	}
 
 	.group-by {
