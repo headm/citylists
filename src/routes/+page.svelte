@@ -544,6 +544,11 @@ let enriched = $state(null);
 		margin-bottom: 0.75rem;
 	}
 
+	main > header {
+		margin-left: -8px;
+		margin-right: -8px;
+	}
+
 	header h1 {
 		margin: 0;
 		position: relative;
@@ -712,6 +717,8 @@ let enriched = $state(null);
 
 	.controls {
 		margin-bottom: 1rem;
+		margin-left: -8px;
+		margin-right: -8px;
 	}
 
 	.group-by {
