@@ -11,6 +11,7 @@
 	let showFilterModal = $state(false);
 	let viewMode = $state('list');
 	let showCityPicker = $state(false);
+	let showGroupPicker = $state(false);
 	let addName = $state('');
 	let enriching = $state(false);
 	let saving = $state(false);
@@ -306,7 +307,7 @@ let enriched = $state(null);
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<main onclick={(e) => { if (!e.target.closest('.tag-wrap')) editingTag = null; if (!e.target.closest('h1')) showCityPicker = false; }}>
+<main onclick={(e) => { if (!e.target.closest('.tag-wrap')) editingTag = null; if (!e.target.closest('h1')) showCityPicker = false; if (!e.target.closest('.group-picker')) showGroupPicker = false; }}>
 	<header>
 		<h1>
 			<span class="city-title" onclick={() => { showCityPicker = !showCityPicker; }}>{$selectedCity} <span class="chevron">&#9662;</span></span>
@@ -339,7 +340,6 @@ let enriched = $state(null);
 
 	<div class="controls">
 		<div class="group-by">
-			<span class="label">Mode:</span>
 			{#each modes as mode}
 				<button class:active={selectedMode === mode} onclick={() => selectMode(mode)}>
 					{mode}
@@ -348,13 +348,18 @@ let enriched = $state(null);
 		</div>
 
 		{#if viewMode === 'list'}
-			<div class="group-by">
-				<span class="label">Group:</span>
-				{#each currentGroupOptions as field}
-					<button class:active={groupBy === field} onclick={() => { groupBy = field; }}>
-						{field}
-					</button>
-				{/each}
+			<div class="group-by-select">
+				<span class="label">Group by</span>
+				<span class="group-picker" onclick={() => { showGroupPicker = !showGroupPicker; }}>
+					{groupBy} <span class="chevron group-chevron">&#9662;</span>
+					{#if showGroupPicker}
+						<div class="group-dropdown">
+							{#each currentGroupOptions as field}
+								<button class:active={groupBy === field} onclick={(e) => { e.stopPropagation(); groupBy = field; showGroupPicker = false; }}>{field}</button>
+							{/each}
+						</div>
+					{/if}
+				</span>
 			</div>
 		{/if}
 	</div>
@@ -798,6 +803,61 @@ let enriched = $state(null);
 		background: #111;
 		color: white;
 		border-color: #111;
+	}
+
+	.group-by-select {
+		display: flex;
+		align-items: baseline;
+		gap: 0.35rem;
+		margin-bottom: 0.5rem;
+		margin-top: 0.75rem;
+	}
+
+	.group-chevron {
+		font-size: 0.7em;
+		vertical-align: baseline;
+	}
+
+	.group-picker {
+		cursor: pointer;
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: #333;
+		position: relative;
+	}
+
+	.group-dropdown {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		background: white;
+		border: 1px solid #ddd;
+		border-radius: 8px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+		z-index: 30;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		min-width: 140px;
+		margin-top: 4px;
+	}
+
+	.group-dropdown button {
+		padding: 0.6rem 1rem;
+		border: none;
+		background: none;
+		text-align: left;
+		font-size: 0.85rem;
+		cursor: pointer;
+		color: #333;
+	}
+
+	.group-dropdown button:hover {
+		background: #f5f5f5;
+	}
+
+	.group-dropdown button.active {
+		font-weight: 600;
 	}
 
 	.filter-options {
