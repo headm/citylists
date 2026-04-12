@@ -130,11 +130,15 @@
 			});
 
 			// Click cluster → zoom in
-			map.on('click', 'clusters', async (e) => {
+			map.on('click', 'clusters', (e) => {
 				const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+				if (!features.length) return;
+				const coords = features[0].geometry.coordinates;
 				const clusterId = features[0].properties.cluster_id;
-				const zoom = await map.getSource('places').getClusterExpansionZoom(clusterId);
-				map.easeTo({ center: features[0].geometry.coordinates, zoom });
+				map.getSource('places').getClusterExpansionZoom(clusterId, (err, zoom) => {
+					if (err) return;
+					map.easeTo({ center: coords, zoom: zoom || map.getZoom() + 2 });
+				});
 			});
 
 			// Click individual point → show popup
