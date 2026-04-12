@@ -786,7 +786,6 @@ let enriched = $state(null);
 	.controls .label {
 		font-size: 0.9rem;
 		color: #888;
-		margin-right: 0.15rem;
 	}
 
 	.group-by button {
@@ -808,7 +807,7 @@ let enriched = $state(null);
 	.group-by-select {
 		display: flex;
 		align-items: baseline;
-		gap: 0.35rem;
+		gap: 0.25rem;
 		margin-bottom: 0.5rem;
 		margin-top: 0.75rem;
 	}
@@ -872,9 +871,9 @@ let enriched = $state(null);
 	}
 
 	.filter-pill {
-		padding: 0.3rem 0.6rem;
+		padding: 0.5rem 0.85rem;
 		border: 1px solid #ddd;
-		border-radius: 12px;
+		border-radius: 999px;
 		background: white;
 		cursor: pointer;
 		font-size: 0.7rem;
