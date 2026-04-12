@@ -64,25 +64,32 @@
 					const lng = pos.coords.longitude;
 					userLat = lat;
 					userLng = lng;
+					console.log('[MapView] Got location:', lat, lng, 'map:', !!map, 'mapboxgl:', !!mapboxgl);
 
-					if (!userMarker) {
+					if (!userMarker && map && mapboxgl) {
 						const el = document.createElement('div');
 						el.style.cssText = 'width: 14px; height: 14px; background: #4285F4; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(66,133,244,0.5);';
 						userMarker = new mapboxgl.Marker({ element: el })
 							.setLngLat([lng, lat])
 							.addTo(map);
+						console.log('[MapView] Blue dot added');
 
 						if (!hasFlownToUser && isNearCity(lat, lng, city)) {
 							map.flyTo({ center: [lng, lat], zoom: 14, duration: 1500 });
 							hasFlownToUser = true;
+							console.log('[MapView] Flying to user');
 						}
-					} else {
+					} else if (userMarker) {
 						userMarker.setLngLat([lng, lat]);
 					}
 				},
-				() => {},
+				(err) => {
+					console.log('[MapView] Geolocation error:', err.code, err.message);
+				},
 				{ enableHighAccuracy: true, timeout: 10000 }
 			);
+		} else {
+			console.log('[MapView] Geolocation not available');
 		}
 	});
 
