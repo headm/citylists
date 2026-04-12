@@ -79,6 +79,7 @@ export async function enrichPlace(name, city, fieldOptions = {}) {
 - type (MUST be exactly one of: ${JSON.stringify(typeOpts)})
 - stars (integer 0-3 — number of Michelin stars. Use 0 if the place has no Michelin stars or you are unsure.)
 - mode (MUST be exactly one of: "Food & Drink", "Things to Do")
+- address (string — the full street address of this place, e.g. "600 Guerrero St, San Francisco, CA" or "2-14-15 Jingumae, Shibuya-ku, Tokyo". Extract from the web information if available. Use "" if unknown.)
 - description (one sentence, max 160 characters, that captures what makes this place distinctive — a signature dish, the vibe, what it's known for. Do NOT just restate the cuisine or category.)
 ${contextBlock}
 Return ONLY valid JSON, no markdown or preamble.`;
@@ -112,9 +113,10 @@ Return ONLY valid JSON, no markdown or preamble.`;
 
 	const result = JSON.parse(text);
 
-	// Geocode via Mapbox Searchbox API
+	// Geocode via Mapbox — use address if available, fall back to name
 	if (env.MAPBOX_ACCESS_TOKEN) {
 		const placeName = result.correctedName || name;
+		const address = result.address || '';
 		const cityGeo = {
 			'San Francisco': { proximity: '-122.44,37.76', bbox: '-122.55,37.70,-122.35,37.85' },
 			'New York': { proximity: '-74.00,40.71', bbox: '-74.10,40.60,-73.85,40.85' },
@@ -123,17 +125,39 @@ Return ONLY valid JSON, no markdown or preamble.`;
 		}[city] || {};
 		const proximity = cityGeo.proximity ? `&proximity=${cityGeo.proximity}` : '';
 		const bbox = cityGeo.bbox ? `&bbox=${cityGeo.bbox}` : '';
+
 		try {
-			const geoRes = await fetch(
-				`https://api.mapbox.com/search/searchbox/v1/forward?q=${encodeURIComponent(placeName)}&access_token=${env.MAPBOX_ACCESS_TOKEN}&limit=1&types=poi&language=en${proximity}${bbox}`
-			);
-			if (geoRes.ok) {
-				const geoData = await geoRes.json();
-				if (geoData.features?.length > 0) {
-					const [lng, lat] = geoData.features[0].geometry.coordinates;
-					result.lat = lat;
-					result.lng = lng;
+			let lat, lng;
+
+			// Try address geocoding first (most accurate)
+			if (address) {
+				const addrRes = await fetch(
+					`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${env.MAPBOX_ACCESS_TOKEN}&limit=1${proximity}${bbox ? '&bbox=' + cityGeo.bbox : ''}`
+				);
+				if (addrRes.ok) {
+					const addrData = await addrRes.json();
+					if (addrData.features?.length > 0) {
+						[lng, lat] = addrData.features[0].center;
+					}
 				}
+			}
+
+			// Fall back to POI name search
+			if (!lat) {
+				const geoRes = await fetch(
+					`https://api.mapbox.com/search/searchbox/v1/forward?q=${encodeURIComponent(placeName)}&access_token=${env.MAPBOX_ACCESS_TOKEN}&limit=1&types=poi&language=en${proximity}${bbox}`
+				);
+				if (geoRes.ok) {
+					const geoData = await geoRes.json();
+					if (geoData.features?.length > 0) {
+						[lng, lat] = geoData.features[0].geometry.coordinates;
+					}
+				}
+			}
+
+			if (lat && lng) {
+				result.lat = lat;
+				result.lng = lng;
 			}
 		} catch {
 			// Geocoding failure is non-fatal

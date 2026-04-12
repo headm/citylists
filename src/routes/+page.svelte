@@ -78,6 +78,7 @@ let enriched = $state(null);
 				Description: enriched.description || '',
 				Stars: enriched.stars || 0,
 				URL: enriched.url || '',
+				Address: enriched.address || '',
 				Lat: enriched.lat || null,
 				Lng: enriched.lng || null
 			};
