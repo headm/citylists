@@ -19,7 +19,7 @@
 	let markers = [];
 	let userMarker;
 	let mapboxgl;
-	let mapReady = false;
+	let mapReady = $state(false);
 
 	onMount(async () => {
 		mapboxgl = (await import('mapbox-gl')).default;
