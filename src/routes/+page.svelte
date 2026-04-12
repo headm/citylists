@@ -566,9 +566,7 @@
 		cursor: pointer;
 		padding: 0;
 		margin: 0;
-		margin-left: -3px;
-		text-indent: -1px;
-		width: fit-content;
+		max-width: 70vw;
 	}
 
 	.header-actions {
@@ -702,6 +700,7 @@
 		border: 1px solid #ccc;
 		border-radius: 4px;
 		background: white;
+		color: #333;
 		cursor: pointer;
 		font-size: 0.75rem;
 	}
