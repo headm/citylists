@@ -23,6 +23,8 @@
 
 	onMount(async () => {
 		mapboxgl = (await import('mapbox-gl')).default;
+		// Fix worker issue in production builds (Vite + mapbox-gl)
+		mapboxgl.workerUrl = `https://unpkg.com/mapbox-gl@${mapboxgl.version}/dist/mapbox-gl-csp-worker.js`;
 		mapboxgl.accessToken = accessToken;
 
 		const defaultCenter = cityCenters[city] || cityCenters['San Francisco'];
