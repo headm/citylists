@@ -559,6 +559,7 @@
 		margin: 0;
 		flex: 1;
 		min-width: 0;
+		font-size: 1.8rem;
 	}
 
 	header h1 select {
@@ -571,7 +572,8 @@
 		cursor: pointer;
 		padding: 0;
 		margin: 0;
-		width: 100%;
+		width: auto;
+		max-width: 100%;
 	}
 
 	.header-actions {
