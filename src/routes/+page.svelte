@@ -2,12 +2,33 @@
 	import { selectedCity, places } from '$lib/stores.js';
 	import { onMount } from 'svelte';
 
-	const cities = ['San Francisco', 'New York', 'Paris'];
+	const cities = ['San Francisco', 'New York', 'Paris', 'Tokyo'];
 
 	let showAddForm = $state(false);
 	let addName = $state('');
 	let enriching = $state(false);
 	let saving = $state(false);
+
+	function sizeSelect(el) {
+		const temp = document.createElement('span');
+		const styles = window.getComputedStyle(el);
+		temp.style.font = styles.font;
+		temp.style.fontSize = styles.fontSize;
+		temp.style.fontWeight = styles.fontWeight;
+		temp.style.fontFamily = styles.fontFamily;
+		temp.style.position = 'absolute';
+		temp.style.visibility = 'hidden';
+		temp.style.whiteSpace = 'nowrap';
+		temp.textContent = el.options[el.selectedIndex].text;
+		document.body.appendChild(temp);
+		el.style.width = (temp.offsetWidth + 24) + 'px';
+		document.body.removeChild(temp);
+	}
+
+	function autoSizeSelect(el) {
+		sizeSelect(el);
+		return {};
+	}
 	let enriched = $state(null);
 
 	async function loadPlaces(city) {
@@ -50,6 +71,7 @@
 			const fields = {
 				Name: addName.trim(),
 				City: $selectedCity,
+				Mode: enriched.mode || selectedMode,
 				Neighborhood: enriched.neighborhood ? [].concat(enriched.neighborhood) : [],
 				Cuisine: enriched.cuisine ? [].concat(enriched.cuisine) : [],
 				Category: enriched.category || '',
@@ -80,11 +102,43 @@
 	}
 
 
+	// --- Mode ---
+	const modes = ['Food & Drink', 'Things to Do', 'All'];
+	let selectedMode = $state('Food & Drink');
+
+	const modeConfig = {
+		'Food & Drink': {
+			groupOptions: ['Category', 'Neighborhood', 'Type'],
+			filterFields: ['Neighborhood', 'Category', 'Type', 'Cuisine'],
+			defaultGroup: 'Category'
+		},
+		'Things to Do': {
+			groupOptions: ['Neighborhood'],
+			filterFields: ['Neighborhood'],
+			defaultGroup: 'Neighborhood'
+		},
+		'All': {
+			groupOptions: ['Neighborhood'],
+			filterFields: ['Neighborhood'],
+			defaultGroup: 'Neighborhood'
+		}
+	};
+
+	function selectMode(mode) {
+		selectedMode = mode;
+		const config = modeConfig[mode];
+		groupBy = config.defaultGroup;
+		clearFilters();
+		expandedFilterField = null;
+	}
+
 	// --- Grouping & Filtering ---
 	let groupBy = $state('Category');
-	const filterFields = ['Neighborhood', 'Category', 'Type', 'Cuisine'];
 	let activeFilters = $state({ Neighborhood: new Set(), Category: new Set(), Type: new Set(), Cuisine: new Set() });
 	let expandedFilterField = $state(null);
+
+	let currentFilterFields = $derived(modeConfig[selectedMode].filterFields);
+	let currentGroupOptions = $derived(modeConfig[selectedMode].groupOptions);
 
 	function getGroupValue(place, field) {
 		const val = place[field];
@@ -126,13 +180,15 @@
 	}
 
 	let hasActiveFilters = $derived(
-		filterFields.some((f) => activeFilters[f]?.size > 0)
+		currentFilterFields.some((f) => activeFilters[f]?.size > 0)
 	);
 
 	let filteredPlaces = $derived(
 		$places.filter((p) => {
 			if (!p.Name) return false;
-			for (const field of filterFields) {
+			// Mode filter
+			if (selectedMode !== 'All' && p.Mode !== selectedMode) return false;
+			for (const field of currentFilterFields) {
 				const selected = activeFilters[field];
 				if (!selected || selected.size === 0) continue;
 				const val = p[field];
@@ -146,6 +202,11 @@
 		})
 	);
 
+	const groupSortOrders = {
+		Category: ['Casual', 'Elevated', 'Fancy'],
+		Type: ['Restaurant', 'Bakery', 'Coffee', 'Bar', 'Shop']
+	};
+
 	let groupedPlaces = $derived(() => {
 		const groups = {};
 		filteredPlaces.forEach((p) => {
@@ -153,7 +214,26 @@
 			if (!groups[key]) groups[key] = [];
 			groups[key].push(p);
 		});
-		return groups;
+
+		const keys = Object.keys(groups);
+		const order = groupSortOrders[groupBy];
+		if (order) {
+			keys.sort((a, b) => {
+				const ai = order.indexOf(a);
+				const bi = order.indexOf(b);
+				// Known values first in order, unknown values at end alphabetically
+				if (ai !== -1 && bi !== -1) return ai - bi;
+				if (ai !== -1) return -1;
+				if (bi !== -1) return 1;
+				return a.localeCompare(b);
+			});
+		} else {
+			keys.sort((a, b) => a.localeCompare(b));
+		}
+
+		const sorted = {};
+		keys.forEach((k) => { sorted[k] = groups[k]; });
+		return sorted;
 	});
 
 	function stars(n) {
@@ -165,21 +245,67 @@
 		// Neighborhood always first
 		if (groupBy !== 'Neighborhood' && place.Neighborhood) {
 			const hoods = Array.isArray(place.Neighborhood) ? place.Neighborhood : [place.Neighborhood];
-			parts.push(...hoods);
+			hoods.forEach((v, i) => parts.push({ value: v, field: 'Neighborhood', index: i }));
 		}
 		if (place.Cuisine) {
 			const cuisines = Array.isArray(place.Cuisine) ? place.Cuisine : [place.Cuisine];
-			parts.push(...cuisines);
+			cuisines.forEach((v, i) => parts.push({ value: v, field: 'Cuisine', index: i }));
 		}
-		if (groupBy !== 'Category' && place.Category) parts.push(place.Category);
+		if (groupBy !== 'Category' && place.Category) {
+			parts.push({ value: place.Category, field: 'Category', index: 0 });
+		}
+		if (groupBy !== 'Type' && place.Type) {
+			parts.push({ value: place.Type, field: 'Type', index: 0 });
+		}
 		return parts;
+	}
+
+	let editingTag = $state(null);
+
+	function toggleTagEdit(placeId, field, index) {
+		if (editingTag && editingTag.placeId === placeId && editingTag.field === field && editingTag.index === index) {
+			editingTag = null;
+		} else {
+			editingTag = { placeId, field, index };
+		}
+	}
+
+	async function updateTag(place, field, index, newValue) {
+		const current = place[field];
+		let updated;
+		if (Array.isArray(current)) {
+			updated = [...current];
+			updated[index] = newValue;
+		} else {
+			updated = newValue;
+		}
+
+		const res = await fetch('/api/places', {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ id: place.id, fields: { [field]: updated } })
+		});
+
+		if (res.ok) {
+			const result = await res.json();
+			const idx = $places.findIndex((p) => p.id === place.id);
+			if (idx !== -1) {
+				$places[idx] = result;
+				$places = [...$places];
+			}
+		}
 	}
 </script>
 
-<main>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<main onclick={(e) => { if (!e.target.closest('.tag-wrap')) editingTag = null; }}>
 	<header>
 		<h1>
-			<select value={$selectedCity} onchange={(e) => selectCity(e.target.value)}>
+			<select
+				value={$selectedCity}
+				onchange={(e) => { selectCity(e.target.value); sizeSelect(e.target); }}
+				use:autoSizeSelect
+			>
 				{#each cities as city}
 					<option value={city}>{city}</option>
 				{/each}
@@ -263,8 +389,17 @@
 
 	<div class="controls">
 		<div class="group-by">
+			<span class="label">Mode:</span>
+			{#each modes as mode}
+				<button class:active={selectedMode === mode} onclick={() => selectMode(mode)}>
+					{mode}
+				</button>
+			{/each}
+		</div>
+
+		<div class="group-by">
 			<span class="label">Group:</span>
-			{#each ['Category', 'Neighborhood', 'Type'] as field}
+			{#each currentGroupOptions as field}
 				<button class:active={groupBy === field} onclick={() => { groupBy = field; }}>
 					{field}
 				</button>
@@ -273,7 +408,7 @@
 
 		<div class="filter-bar">
 			<span class="label">Filter:</span>
-			{#each filterFields as field}
+			{#each currentFilterFields as field}
 				<button
 					class="filter-field-btn"
 					class:active={expandedFilterField === field}
@@ -303,6 +438,37 @@
 		{/if}
 	</div>
 
+	{#snippet placeList(items)}
+		<ul class="compact-list">
+			{#each items as place}
+				<li>
+					<a class="place-name" href={`https://www.google.com/search?q=${encodeURIComponent(place.Name + ' ' + $selectedCity)}`} target="_blank" rel="noopener"><strong>{place.Name}</strong></a>{stars(place.Stars)}
+					{#if place.Description}
+						<span class="desc"> — {place.Description}</span>
+					{/if}
+					{#each tags(place) as tag}
+						<span class="tag-wrap">
+							<span
+								class="tag-pill"
+								onclick={() => toggleTagEdit(place.id, tag.field, tag.index)}
+							>{tag.value}</span>
+							{#if editingTag && editingTag.placeId === place.id && editingTag.field === tag.field && editingTag.index === tag.index}
+								<div class="tag-dropdown">
+									{#each getFilterOptions(tag.field) as opt}
+										<button
+											class:active={opt === tag.value}
+											onclick={() => { updateTag(place, tag.field, tag.index, opt); editingTag = null; }}
+										>{opt}</button>
+									{/each}
+								</div>
+							{/if}
+						</span>
+					{/each}
+				</li>
+			{/each}
+		</ul>
+	{/snippet}
+
 	<section>
 		{#if filteredPlaces.length === 0}
 			<p>No places yet.</p>
@@ -310,19 +476,20 @@
 			{@const groups = groupedPlaces()}
 			{#each Object.entries(groups) as [group, items]}
 				<h3 class="group-heading">{group}</h3>
-				<ul class="compact-list">
-					{#each items as place}
-						<li>
-							<a class="place-name" href={`https://www.google.com/search?q=${encodeURIComponent(place.Name + ' ' + $selectedCity)}`} target="_blank" rel="noopener"><strong>{place.Name}</strong></a>{stars(place.Stars)}
-							{#if place.Description}
-								<span class="desc"> — {place.Description}</span>
-							{/if}
-							{#each tags(place) as tag}
-								<span class="tag-pill">{tag}</span>
-							{/each}
-						</li>
-					{/each}
-				</ul>
+				{#if selectedMode === 'All'}
+					{@const foodItems = items.filter(p => p.Mode === 'Food & Drink')}
+					{@const activityItems = items.filter(p => p.Mode === 'Things to Do')}
+					{#if activityItems.length > 0}
+						<h4 class="subsection-heading">Things to Do</h4>
+						{@render placeList(activityItems)}
+					{/if}
+					{#if foodItems.length > 0}
+						<h4 class="subsection-heading">Food & Drink</h4>
+						{@render placeList(foodItems)}
+					{/if}
+				{:else}
+					{@render placeList(items)}
+				{/if}
 			{/each}
 		{/if}
 	</section>
@@ -347,6 +514,7 @@
 		margin: 0;
 	}
 
+
 	header h1 select {
 		font-size: inherit;
 		font-weight: inherit;
@@ -354,14 +522,12 @@
 		border: none;
 		outline: none;
 		background: none;
-		appearance: none;
-		-webkit-appearance: none;
 		cursor: pointer;
 		padding: 0;
-		padding-right: 1.2rem;
-		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
-		background-repeat: no-repeat;
-		background-position: right center;
+		margin: 0;
+		margin-left: -3px;
+		text-indent: -1px;
+		width: fit-content;
 	}
 
 	.add-btn {
@@ -577,12 +743,27 @@
 	.group-heading {
 		font-size: 0.85rem;
 		font-weight: 600;
-		color: #888;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		margin: 1rem 0 0.25rem;
-		border-bottom: 1px solid #eee;
-		padding-bottom: 0.25rem;
+		margin: 0.75rem -1rem 0.25rem;
+		padding: 0.4rem 1rem;
+		position: sticky;
+		top: 0;
+		z-index: 5;
+	}
+
+	.group-heading {
+		color: #555;
+		background: #f5f5f5;
+	}
+
+	.subsection-heading {
+		font-size: 0.7rem;
+		font-weight: 600;
+		color: #5a7a9b;
+		background: #eef3f8;
+		margin: 0.4rem -1rem 0.15rem;
+		padding: 0.25rem 1rem;
 	}
 
 	.compact-list {
@@ -606,6 +787,11 @@
 		color: #555;
 	}
 
+	.tag-wrap {
+		position: relative;
+		display: inline;
+	}
+
 	.tag-pill {
 		display: inline-block;
 		background: #f0f0f0;
@@ -615,5 +801,40 @@
 		font-size: 0.65rem;
 		margin-left: 0.2rem;
 		vertical-align: middle;
+		cursor: pointer;
+	}
+
+	.tag-dropdown {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		background: white;
+		border: 1px solid #ddd;
+		border-radius: 6px;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+		z-index: 20;
+		display: flex;
+		flex-direction: column;
+		max-height: 200px;
+		overflow-y: auto;
+		min-width: 140px;
+	}
+
+	.tag-dropdown button {
+		padding: 0.4rem 0.6rem;
+		border: none;
+		background: none;
+		text-align: left;
+		font-size: 0.75rem;
+		cursor: pointer;
+		color: #333;
+	}
+
+	.tag-dropdown button:hover {
+		background: #f5f5f5;
+	}
+
+	.tag-dropdown button.active {
+		font-weight: 600;
 	}
 </style>

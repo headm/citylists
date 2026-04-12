@@ -67,6 +67,29 @@ export async function fetchFieldOptions() {
  * Create a new place in Airtable.
  * Returns the created record as a flat object.
  */
+/**
+ * Update fields on an existing Airtable record.
+ */
+export async function updatePlace(id, fields) {
+	const response = await fetch(`${BASE_URL}/${id}`, {
+		method: 'PATCH',
+		headers,
+		body: JSON.stringify({ fields, typecast: true })
+	});
+
+	if (!response.ok) {
+		const body = await response.text();
+		throw new Error(`Airtable update failed (${response.status}): ${body}`);
+	}
+
+	const data = await response.json();
+
+	return {
+		id: data.id,
+		...data.fields
+	};
+}
+
 export async function createPlace(fields) {
 	const response = await fetch(BASE_URL, {
 		method: 'POST',

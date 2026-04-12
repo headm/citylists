@@ -17,6 +17,7 @@ export async function enrichPlace(name, city, fieldOptions = {}) {
 - category (MUST be exactly one of: ${JSON.stringify(categoryOpts)})
 - type (MUST be exactly one of: ${JSON.stringify(typeOpts)})
 - stars (integer 0-3 — number of Michelin stars. Use 0 if the place has no Michelin stars or you are unsure.)
+- mode (MUST be exactly one of: "Food & Drink", "Things to Do")
 - description (one sentence that captures what makes this place distinctive — a signature dish, the vibe, what it's known for. Do NOT just restate the cuisine or category.)
 
 Return ONLY valid JSON, no markdown or preamble.`;
