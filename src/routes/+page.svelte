@@ -545,8 +545,9 @@ let enriched = $state(null);
 	}
 
 	.chevron {
-		font-size: 0.6em;
+		font-size: 0.5em;
 		color: #888;
+		vertical-align: middle;
 	}
 
 	.city-dropdown {
