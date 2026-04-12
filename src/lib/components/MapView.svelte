@@ -134,11 +134,7 @@
 				const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
 				if (!features.length) return;
 				const coords = features[0].geometry.coordinates;
-				const clusterId = features[0].properties.cluster_id;
-				map.getSource('places').getClusterExpansionZoom(clusterId, (err, zoom) => {
-					if (err) return;
-					map.easeTo({ center: coords, zoom: zoom || map.getZoom() + 2 });
-				});
+				map.easeTo({ center: coords, zoom: map.getZoom() + 3, duration: 500 });
 			});
 
 			// Click individual point → show popup
