@@ -38,19 +38,23 @@ const cityConfig = {
 	'Tokyo': { proximity: '139.69,35.68', bbox: '139.50,35.50,139.95,35.85' }
 };
 
+// Track seen coordinates to detect stacking
+const seenCoords = new Map();
+
 async function geocode(name, neighborhood, city) {
 	const config = cityConfig[city] || {};
 	const proximityParam = config.proximity ? `&proximity=${config.proximity}` : '';
 	const bboxParam = config.bbox ? `&bbox=${config.bbox}` : '';
 
-	// Searchbox API with POI type + bbox to constrain to city
-	const url = `https://api.mapbox.com/search/searchbox/v1/forward?q=${encodeURIComponent(name)}&access_token=${MAPBOX}&limit=1&types=poi&language=en${proximityParam}${bboxParam}`;
+	// Try Searchbox with name + neighborhood for specificity
+	const searchQuery = neighborhood ? `${name} ${neighborhood}` : name;
+	const url = `https://api.mapbox.com/search/searchbox/v1/forward?q=${encodeURIComponent(searchQuery)}&access_token=${MAPBOX}&limit=1&types=poi&language=en${proximityParam}${bboxParam}`;
 	const res = await fetch(url);
 	if (res.ok) {
 		const data = await res.json();
 		if (data.features?.length) {
 			const [lng, lat] = data.features[0].geometry.coordinates;
-			return { lat, lng };
+			return addJitter({ lat, lng });
 		}
 	}
 
@@ -62,7 +66,22 @@ async function geocode(name, neighborhood, city) {
 	const fbData = await fbRes.json();
 	if (!fbData.features?.length) return null;
 	const [lng, lat] = fbData.features[0].center;
-	return { lat, lng };
+	return addJitter({ lat, lng });
+}
+
+// Add small random offset when coordinates are duplicated
+function addJitter(coords) {
+	const key = coords.lat.toFixed(4) + ',' + coords.lng.toFixed(4);
+	const count = seenCoords.get(key) || 0;
+	seenCoords.set(key, count + 1);
+	if (count > 0) {
+		// Spread in a circle ~100-300m radius around the point
+		const angle = (count * 137.5) * Math.PI / 180; // golden angle for even spread
+		const radius = 0.001 + (count * 0.0005); // ~100-300m
+		coords.lat += Math.sin(angle) * radius;
+		coords.lng += Math.cos(angle) * radius;
+	}
+	return coords;
 }
 
 const records = await fetchRecords();
