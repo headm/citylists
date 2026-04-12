@@ -12,6 +12,18 @@
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
+		<div class="safe-area-cover"></div>
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
+	<style>
+		.safe-area-cover {
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: env(safe-area-inset-top, 0px);
+			background: #ffffff;
+			z-index: 100;
+		}
+	</style>
 </html>
