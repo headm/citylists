@@ -55,7 +55,17 @@
 						userMarker = new mapboxgl.Marker({ element: el })
 							.setLngLat([longitude, latitude])
 							.addTo(map);
-						map.flyTo({ center: [longitude, latitude], zoom: 14, duration: 1500 });
+
+						// Only fly to user if they're near the selected city
+						const center = cityCenters[city] || cityCenters['San Francisco'];
+						const dist = Math.sqrt(
+							Math.pow(latitude - center.lat, 2) +
+							Math.pow(longitude - center.lng, 2)
+						);
+						// ~0.5 degrees ≈ roughly 50km — close enough to be "in the city"
+						if (dist < 0.5) {
+							map.flyTo({ center: [longitude, latitude], zoom: 14, duration: 1500 });
+						}
 					} else if (userMarker) {
 						userMarker.setLngLat([longitude, latitude]);
 					}
