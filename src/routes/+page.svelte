@@ -12,6 +12,12 @@
 	let viewMode = $state('list');
 	let showCityPicker = $state(false);
 	let showGroupPicker = $state(false);
+	let controlsVisible = $state(true);
+	let stickyHeaderEl;
+	let lastScrollY = 0;
+	let scrollAnchor = 0;
+	let lastDirection = 'up';
+	let transitioning = false;
 	let addName = $state('');
 	let enriching = $state(false);
 	let saving = $state(false);
@@ -37,6 +43,57 @@ let enriched = $state(null);
 		loadPlaces($selectedCity);
 		const res = await fetch('/api/field-options');
 		if (res.ok) fieldOptions = await res.json();
+
+		function updateHeaderHeight() {
+			if (stickyHeaderEl) {
+				document.documentElement.style.setProperty('--sticky-header-height', stickyHeaderEl.offsetHeight + 'px');
+			}
+		}
+
+		function setControlsVisible(v) {
+			if (controlsVisible !== v && !transitioning) {
+				controlsVisible = v;
+				transitioning = true;
+			}
+		}
+
+		function onScroll() {
+			const y = window.scrollY;
+			if (y < 10) {
+				setControlsVisible(true);
+				lastDirection = 'up';
+				scrollAnchor = y;
+			} else if (y > lastScrollY) {
+				if (lastDirection !== 'down') {
+					lastDirection = 'down';
+					scrollAnchor = y;
+				}
+				setControlsVisible(false);
+			} else if (y < lastScrollY) {
+				if (lastDirection !== 'up') {
+					lastDirection = 'up';
+					scrollAnchor = y;
+				}
+				if (scrollAnchor - y > 15) {
+					setControlsVisible(true);
+				}
+			}
+			lastScrollY = y;
+			requestAnimationFrame(updateHeaderHeight);
+		}
+
+		function onTransitionEnd() {
+			transitioning = false;
+			updateHeaderHeight();
+		}
+
+		updateHeaderHeight();
+		window.addEventListener('scroll', onScroll, { passive: true });
+		stickyHeaderEl?.addEventListener('transitionend', onTransitionEnd);
+		return () => {
+			window.removeEventListener('scroll', onScroll);
+			stickyHeaderEl?.removeEventListener('transitionend', onTransitionEnd);
+		};
 	});
 
 	$effect(() => {
@@ -308,60 +365,63 @@ let enriched = $state(null);
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <main onclick={(e) => { if (!e.target.closest('.tag-wrap')) editingTag = null; if (!e.target.closest('h1')) showCityPicker = false; if (!e.target.closest('.group-picker')) showGroupPicker = false; }}>
-	<header>
-		<h1>
-			<span class="city-title" onclick={() => { showCityPicker = !showCityPicker; }}>{$selectedCity} <span class="chevron">&#9662;</span></span>
-			{#if showCityPicker}
-				<div class="city-dropdown">
-					{#each cities as c}
-						<button class:active={$selectedCity === c} onclick={() => { selectCity(c); showCityPicker = false; }}>{c}</button>
+	<div class="sticky-header" bind:this={stickyHeaderEl}>
+		<header>
+			<h1>
+				<span class="city-title" onclick={() => { showCityPicker = !showCityPicker; }}>{$selectedCity} <span class="chevron">&#9662;</span></span>
+				{#if showCityPicker}
+					<div class="city-dropdown">
+						{#each cities as c}
+							<button class:active={$selectedCity === c} onclick={() => { selectCity(c); showCityPicker = false; }}>{c}</button>
+						{/each}
+					</div>
+				{/if}
+			</h1>
+			<div class="header-actions">
+				<button class="add-btn" class:has-selections={hasActiveFilters} onclick={() => { showFilterModal = true; }}>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+					{#if hasActiveFilters}<span class="header-badge">{totalFilterCount}</span>{/if}
+				</button>
+				<button class="add-btn" onclick={() => { viewMode = viewMode === 'list' ? 'map' : 'list'; }}>
+					{#if viewMode === 'list'}
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+					{:else}
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+					{/if}
+				</button>
+				<button class="add-btn" onclick={() => { if (showAddForm) { resetForm(); } else { showAddForm = true; } }}>
+					{showAddForm ? '\u00d7' : '+'}
+				</button>
+			</div>
+		</header>
+
+		<div class="controls-wrapper" class:controls-hidden={!controlsVisible}>
+			<div class="controls">
+				<div class="group-by">
+					{#each modes as mode}
+						<button class:active={selectedMode === mode} onclick={() => selectMode(mode)}>
+							{mode}
+						</button>
 					{/each}
 				</div>
-			{/if}
-		</h1>
-		<div class="header-actions">
-			<button class="add-btn" class:has-selections={hasActiveFilters} onclick={() => { showFilterModal = true; }}>
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-				{#if hasActiveFilters}<span class="header-badge">{totalFilterCount}</span>{/if}
-			</button>
-			<button class="add-btn" onclick={() => { viewMode = viewMode === 'list' ? 'map' : 'list'; }}>
+
 				{#if viewMode === 'list'}
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-				{:else}
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+					<div class="group-by-select">
+						<span class="label">Group by</span>
+						<span class="group-picker" onclick={() => { showGroupPicker = !showGroupPicker; }}>
+							{groupBy} <span class="chevron group-chevron">&#9662;</span>
+							{#if showGroupPicker}
+								<div class="group-dropdown">
+									{#each currentGroupOptions as field}
+										<button class:active={groupBy === field} onclick={(e) => { e.stopPropagation(); groupBy = field; showGroupPicker = false; }}>{field}</button>
+									{/each}
+								</div>
+							{/if}
+						</span>
+					</div>
 				{/if}
-			</button>
-			<button class="add-btn" onclick={() => { if (showAddForm) { resetForm(); } else { showAddForm = true; } }}>
-				{showAddForm ? '\u00d7' : '+'}
-			</button>
-		</div>
-	</header>
-
-
-	<div class="controls">
-		<div class="group-by">
-			{#each modes as mode}
-				<button class:active={selectedMode === mode} onclick={() => selectMode(mode)}>
-					{mode}
-				</button>
-			{/each}
-		</div>
-
-		{#if viewMode === 'list'}
-			<div class="group-by-select">
-				<span class="label">Group by</span>
-				<span class="group-picker" onclick={() => { showGroupPicker = !showGroupPicker; }}>
-					{groupBy} <span class="chevron group-chevron">&#9662;</span>
-					{#if showGroupPicker}
-						<div class="group-dropdown">
-							{#each currentGroupOptions as field}
-								<button class:active={groupBy === field} onclick={(e) => { e.stopPropagation(); groupBy = field; showGroupPicker = false; }}>{field}</button>
-							{/each}
-						</div>
-					{/if}
-				</span>
 			</div>
-		{/if}
+		</div>
 	</div>
 
 	{#snippet placeList(items)}
@@ -547,8 +607,20 @@ let enriched = $state(null);
 		max-width: 600px;
 		margin: 0 auto;
 		padding: 1rem;
-		padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+		padding-top: 0;
 		font-family: system-ui, -apple-system, sans-serif;
+	}
+
+	.sticky-header {
+		position: sticky;
+		top: 0;
+		z-index: 10;
+		background: white;
+		padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+		padding-bottom: 0;
+		margin: 0 calc(-1rem - 8px);
+		padding-left: 1rem;
+		padding-right: 1rem;
 	}
 
 	header {
@@ -562,10 +634,6 @@ let enriched = $state(null);
 		margin-bottom: 1.25rem;
 	}
 
-	main > header {
-		margin-left: -8px;
-		margin-right: -8px;
-	}
 
 	header h1 {
 		margin: 0;
@@ -770,17 +838,26 @@ let enriched = $state(null);
 		cursor: not-allowed;
 	}
 
+	.controls-wrapper {
+		display: grid;
+		grid-template-rows: 1fr;
+		padding-bottom: 0.75rem;
+		transition: grid-template-rows 0.25s ease, padding-bottom 0.25s ease;
+	}
+
+	.controls-wrapper.controls-hidden {
+		grid-template-rows: 0fr;
+		padding-bottom: 0;
+	}
+
 	.controls {
-		margin-bottom: 1rem;
-		margin-left: -8px;
-		margin-right: -8px;
+		overflow: hidden;
 	}
 
 	.group-by {
 		display: flex;
 		align-items: center;
 		gap: 0.35rem;
-		margin-bottom: 0.5rem;
 	}
 
 	.controls .label {
@@ -808,7 +885,6 @@ let enriched = $state(null);
 		display: flex;
 		align-items: baseline;
 		gap: 0.25rem;
-		margin-bottom: 0.5rem;
 		margin-top: 0.75rem;
 	}
 
@@ -930,10 +1006,10 @@ let enriched = $state(null);
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		margin: 0.75rem calc(-1rem - 8px) 0.25rem;
+		margin: 0 calc(-1rem - 8px) 0.25rem;
 		padding: 0.4rem 1rem;
 		position: sticky;
-		top: env(safe-area-inset-top, 0px);
+		top: var(--sticky-header-height, 0px);
 		z-index: 5;
 	}
 
