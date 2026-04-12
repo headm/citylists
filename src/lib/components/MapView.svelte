@@ -38,7 +38,6 @@
 
 		map.on('load', () => {
 			mapReady = true;
-			updateMarkers();
 		});
 
 		// Get user location via browser API and show blue dot
@@ -107,12 +106,14 @@
 	}
 
 	$effect(() => {
-		places;
+		// Access length and individual items to create proper reactive dependency
+		const _ = places.length && places.map(p => p.id);
 		if (mapReady) updateMarkers();
 	});
 
 	$effect(() => {
-		if (map && mapReady && city) {
+		const _ = city;
+		if (map && mapReady) {
 			const center = cityCenters[city] || cityCenters['San Francisco'];
 			map.flyTo({ center: [center.lng, center.lat], zoom: center.zoom, duration: 1000 });
 		}
