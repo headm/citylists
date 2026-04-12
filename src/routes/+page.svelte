@@ -69,7 +69,7 @@ let enriched = $state(null);
 					lastDirection = 'down';
 					scrollAnchor = y;
 				}
-				setControlsVisible(false);
+				if (filteredPlaces.length > 0) setControlsVisible(false);
 			} else if (y < lastScrollY) {
 				if (lastDirection !== 'up') {
 					lastDirection = 'up';
