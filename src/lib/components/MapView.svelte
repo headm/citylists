@@ -8,10 +8,10 @@
 	let { places = [], accessToken = '', city = 'San Francisco' } = $props();
 
 	const cityCenters = {
-		'San Francisco': { lng: -122.44, lat: 37.76, zoom: 12 },
-		'New York': { lng: -74.0, lat: 40.71, zoom: 12 },
-		'Paris': { lng: 2.35, lat: 48.86, zoom: 12 },
-		'Tokyo': { lng: 139.69, lat: 35.68, zoom: 11.5 }
+		'San Francisco': { lng: -122.44, lat: 37.76, zoom: 11 },
+		'New York': { lng: -74.0, lat: 40.71, zoom: 11 },
+		'Paris': { lng: 2.35, lat: 48.86, zoom: 11 },
+		'Tokyo': { lng: 139.69, lat: 35.68, zoom: 10.5 }
 	};
 
 	let mapContainer;
