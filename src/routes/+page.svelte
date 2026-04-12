@@ -327,79 +327,6 @@ let enriched = $state(null);
 		</div>
 	</header>
 
-	{#if showAddForm}
-		<div class="add-form">
-			<div class="row">
-				<input
-					bind:value={addName}
-					placeholder="Place name..."
-					disabled={enriching}
-				/>
-				<button onclick={enrich} disabled={enriching || !addName.trim()}>
-					{enriching ? 'Loading...' : 'Enrich'}
-				</button>
-			</div>
-			<p class="city-label">City: {$selectedCity}</p>
-
-			{#if duplicateWarning}
-				<p class="duplicate-warning">⚠ "{duplicateWarning}" already exists in your list</p>
-			{/if}
-
-			{#if enriched}
-				<div class="fields">
-					<label>
-						Neighborhood
-						<input bind:value={enriched.neighborhood} />
-					</label>
-					<label>
-						Cuisine (comma-separated)
-						<input
-							value={Array.isArray(enriched.cuisine) ? enriched.cuisine.join(', ') : enriched.cuisine}
-							oninput={(e) => { enriched.cuisine = e.target.value.split(',').map(s => s.trim()).filter(Boolean); }}
-						/>
-					</label>
-					<label>
-						Category
-						<select bind:value={enriched.category}>
-							<option value="">—</option>
-							{#each fieldOptions.Category || [] as opt}
-								<option value={opt}>{opt}</option>
-							{/each}
-						</select>
-					</label>
-					<label>
-						Type
-						<select bind:value={enriched.type}>
-							<option value="">—</option>
-							{#each fieldOptions.Type || [] as opt}
-								<option value={opt}>{opt}</option>
-							{/each}
-						</select>
-					</label>
-					<label>
-						Stars (Michelin)
-						<select bind:value={enriched.stars}>
-							<option value={0}>None</option>
-							<option value={1}>*</option>
-							<option value={2}>**</option>
-							<option value={3}>***</option>
-						</select>
-					</label>
-					<label>
-						Description
-						<input bind:value={enriched.description} />
-					</label>
-					<label>
-						URL
-						<input bind:value={enriched.url} placeholder="Optional" />
-					</label>
-					<button class="save-btn" onclick={savePlace} disabled={saving}>
-						{saving ? 'Saving...' : 'Save'}
-					</button>
-				</div>
-			{/if}
-		</div>
-	{/if}
 
 	<div class="controls">
 		<div class="group-by">
@@ -521,6 +448,89 @@ let enriched = $state(null);
 	{/if}
 </main>
 
+{#if showAddForm}
+	<div class="modal-overlay">
+		<div class="modal">
+			<div class="modal-header">
+				<h2>Add Place</h2>
+				<button class="modal-close" onclick={resetForm}>&times;</button>
+			</div>
+
+			<div class="modal-body">
+				<div class="row">
+					<input
+						bind:value={addName}
+						placeholder="Place name..."
+						disabled={enriching}
+					/>
+					<button class="enrich-btn" onclick={enrich} disabled={enriching || !addName.trim()}>
+						{enriching ? 'Loading...' : 'Enrich'}
+					</button>
+				</div>
+				<p class="city-label">City: {$selectedCity}</p>
+
+				{#if duplicateWarning}
+					<p class="duplicate-warning">⚠ "{duplicateWarning}" already exists in your list</p>
+				{/if}
+
+				{#if enriched}
+					<div class="fields">
+						<label>
+							Neighborhood
+							<input bind:value={enriched.neighborhood} />
+						</label>
+						<label>
+							Cuisine (comma-separated)
+							<input
+								value={Array.isArray(enriched.cuisine) ? enriched.cuisine.join(', ') : enriched.cuisine}
+								oninput={(e) => { enriched.cuisine = e.target.value.split(',').map(s => s.trim()).filter(Boolean); }}
+							/>
+						</label>
+						<label>
+							Category
+							<select bind:value={enriched.category}>
+								<option value="">—</option>
+								{#each fieldOptions.Category || [] as opt}
+									<option value={opt}>{opt}</option>
+								{/each}
+							</select>
+						</label>
+						<label>
+							Type
+							<select bind:value={enriched.type}>
+								<option value="">—</option>
+								{#each fieldOptions.Type || [] as opt}
+									<option value={opt}>{opt}</option>
+								{/each}
+							</select>
+						</label>
+						<label>
+							Stars (Michelin)
+							<select bind:value={enriched.stars}>
+								<option value={0}>None</option>
+								<option value={1}>*</option>
+								<option value={2}>**</option>
+								<option value={3}>***</option>
+							</select>
+						</label>
+						<label>
+							Description
+							<input bind:value={enriched.description} />
+						</label>
+						<label>
+							URL
+							<input bind:value={enriched.url} placeholder="Optional" />
+						</label>
+						<button class="save-btn" onclick={savePlace} disabled={saving}>
+							{saving ? 'Saving...' : 'Save'}
+						</button>
+					</div>
+				{/if}
+			</div>
+		</div>
+	</div>
+{/if}
+
 <style>
 	main {
 		max-width: 600px;
@@ -603,12 +613,51 @@ let enriched = $state(null);
 		justify-content: center;
 	}
 
-.add-form {
-		border: 1px solid #e0e0e0;
-		border-radius: 8px;
+	.modal-overlay {
+		position: fixed;
+		inset: 0;
+		background: white;
+		z-index: 200;
+		overflow-y: auto;
+		font-family: system-ui, -apple-system, sans-serif;
+	}
+
+	.modal {
+		max-width: 600px;
+		margin: 0 auto;
 		padding: 1rem;
-		margin-bottom: 1rem;
-		background: #fafafa;
+		padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+	}
+
+	.modal-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 1.5rem;
+	}
+
+	.modal-header h2 {
+		margin: 0;
+		font-size: 1.5rem;
+	}
+
+	.modal-close {
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		border: 1px solid #ccc;
+		background: white;
+		font-size: 1.2rem;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.modal-body {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
 	}
 
 	.row {
@@ -624,7 +673,7 @@ let enriched = $state(null);
 		font-size: 0.9rem;
 	}
 
-	.row button {
+	.enrich-btn {
 		padding: 0.5rem 1rem;
 		border: 1px solid #111;
 		border-radius: 6px;
@@ -632,9 +681,10 @@ let enriched = $state(null);
 		color: white;
 		cursor: pointer;
 		font-size: 0.9rem;
+		white-space: nowrap;
 	}
 
-	.row button:disabled {
+	.enrich-btn:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
