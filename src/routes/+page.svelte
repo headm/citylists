@@ -526,6 +526,7 @@ let enriched = $state(null);
 		max-width: 600px;
 		margin: 0 auto;
 		padding: 1rem;
+		padding-top: calc(1rem + env(safe-area-inset-top, 0px));
 		font-family: system-ui, -apple-system, sans-serif;
 	}
 
