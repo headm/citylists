@@ -12,12 +12,17 @@ if (!MAPBOX) {
 	process.exit(1);
 }
 
-// Fetch all records missing Lat
-async function fetchRecordsWithoutCoords() {
+// Fetch records — pass --all flag to re-geocode everything
+const regeoAll = process.argv.includes('--all');
+
+async function fetchRecords() {
 	const records = [];
 	let offset;
+	const filter = regeoAll
+		? encodeURIComponent('{Name}!=""')
+		: encodeURIComponent('AND({Name}!="", OR({Lat}=BLANK(), {Lng}=BLANK()))');
 	do {
-		const url = `${base}?filterByFormula=${encodeURIComponent('AND({Name}!="", OR({Lat}=BLANK(), {Lng}=BLANK()))')}&pageSize=100${offset ? '&offset=' + offset : ''}`;
+		const url = `${base}?filterByFormula=${filter}&pageSize=100${offset ? '&offset=' + offset : ''}`;
 		const res = await fetch(url, { headers });
 		const data = await res.json();
 		records.push(...data.records);
@@ -26,19 +31,39 @@ async function fetchRecordsWithoutCoords() {
 	return records;
 }
 
+const cityProximity = {
+	'San Francisco': '-122.44,37.76',
+	'New York': '-74.00,40.71',
+	'Paris': '2.35,48.86',
+	'Tokyo': '139.69,35.68'
+};
+
 async function geocode(name, neighborhood, city) {
-	const parts = [name, neighborhood, city].filter(Boolean);
-	const query = parts.join(', ');
-	const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX}&limit=1`;
+	const proximity = cityProximity[city] || '';
+
+	// Searchbox API with POI type — best for finding actual businesses
+	const url = `https://api.mapbox.com/search/searchbox/v1/forward?q=${encodeURIComponent(name)}&access_token=${MAPBOX}&limit=1&types=poi&language=en${proximity ? '&proximity=' + proximity : ''}`;
 	const res = await fetch(url);
-	if (!res.ok) return null;
-	const data = await res.json();
-	if (!data.features?.length) return null;
-	const [lng, lat] = data.features[0].center;
+	if (res.ok) {
+		const data = await res.json();
+		if (data.features?.length) {
+			const [lng, lat] = data.features[0].geometry.coordinates;
+			return { lat, lng };
+		}
+	}
+
+	// Fallback: v5 geocoding with full context
+	const parts = [name, neighborhood, city].filter(Boolean);
+	const fallbackUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(parts.join(', '))}.json?access_token=${MAPBOX}&limit=1${proximity ? '&proximity=' + proximity : ''}`;
+	const fbRes = await fetch(fallbackUrl);
+	if (!fbRes.ok) return null;
+	const fbData = await fbRes.json();
+	if (!fbData.features?.length) return null;
+	const [lng, lat] = fbData.features[0].center;
 	return { lat, lng };
 }
 
-const records = await fetchRecordsWithoutCoords();
+const records = await fetchRecords();
 console.log(`Found ${records.length} records without coordinates`);
 
 let success = 0;

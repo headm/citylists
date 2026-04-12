@@ -112,19 +112,24 @@ Return ONLY valid JSON, no markdown or preamble.`;
 
 	const result = JSON.parse(text);
 
-	// Geocode via Mapbox
+	// Geocode via Mapbox Searchbox API
 	if (env.MAPBOX_ACCESS_TOKEN) {
 		const placeName = result.correctedName || name;
-		const neighborhood = result.neighborhood || '';
-		const query = `${placeName}, ${neighborhood}, ${city}`.replace(/,\s*,/g, ',');
+		const cityCenter = {
+			'San Francisco': '-122.44,37.76',
+			'New York': '-74.00,40.71',
+			'Paris': '2.35,48.86',
+			'Tokyo': '139.69,35.68'
+		}[city] || '';
+		const proximity = cityCenter ? `&proximity=${cityCenter}` : '';
 		try {
 			const geoRes = await fetch(
-				`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${env.MAPBOX_ACCESS_TOKEN}&limit=1`
+				`https://api.mapbox.com/search/searchbox/v1/forward?q=${encodeURIComponent(placeName)}&access_token=${env.MAPBOX_ACCESS_TOKEN}&limit=1&types=poi&language=en${proximity}`
 			);
 			if (geoRes.ok) {
 				const geoData = await geoRes.json();
 				if (geoData.features?.length > 0) {
-					const [lng, lat] = geoData.features[0].center;
+					const [lng, lat] = geoData.features[0].geometry.coordinates;
 					result.lat = lat;
 					result.lng = lng;
 				}

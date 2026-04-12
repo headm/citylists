@@ -12,24 +12,32 @@ const headers = {
  * Returns flat objects with `id` plus all fields.
  */
 export async function fetchPlaces(city) {
-	const url = new URL(BASE_URL);
+	const allRecords = [];
+	let offset;
 
-	if (city) {
-		url.searchParams.set('filterByFormula', `{City} = "${city}"`);
-	}
+	do {
+		const url = new URL(BASE_URL);
 
-	url.searchParams.set('pageSize', '100');
+		if (city) {
+			url.searchParams.set('filterByFormula', `{City} = "${city}"`);
+		}
 
-	const response = await fetch(url, { headers });
+		url.searchParams.set('pageSize', '100');
+		if (offset) url.searchParams.set('offset', offset);
 
-	if (!response.ok) {
-		const body = await response.text();
-		throw new Error(`Airtable fetch failed (${response.status}): ${body}`);
-	}
+		const response = await fetch(url, { headers });
 
-	const data = await response.json();
+		if (!response.ok) {
+			const body = await response.text();
+			throw new Error(`Airtable fetch failed (${response.status}): ${body}`);
+		}
 
-	return data.records.map((record) => ({
+		const data = await response.json();
+		allRecords.push(...data.records);
+		offset = data.offset;
+	} while (offset);
+
+	return allRecords.map((record) => ({
 		id: record.id,
 		...record.fields
 	}));
