@@ -451,12 +451,10 @@ let enriched = $state(null);
 {#if showAddForm}
 	<div class="modal-overlay">
 		<div class="modal">
-			<div class="modal-header">
-				<h2>Add Place</h2>
-				<button class="modal-close" onclick={resetForm}>&times;</button>
-			</div>
-
-			<div class="modal-body">
+			<header>
+				<h1>Add Place</h1>
+				<button class="add-btn" onclick={resetForm}>&times;</button>
+			</header>
 				<div class="row">
 					<input
 						bind:value={addName}
@@ -526,7 +524,6 @@ let enriched = $state(null);
 						</button>
 					</div>
 				{/if}
-			</div>
 		</div>
 	</div>
 {/if}
@@ -629,38 +626,7 @@ let enriched = $state(null);
 		padding-top: calc(1rem + env(safe-area-inset-top, 0px));
 	}
 
-	.modal-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1.5rem;
-	}
-
-	.modal-header h2 {
-		margin: 0;
-		font-size: 1.5rem;
-	}
-
-	.modal-close {
-		width: 36px;
-		height: 36px;
-		border-radius: 50%;
-		border: 1px solid #ccc;
-		background: white;
-		font-size: 1.2rem;
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.modal-body {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-
-	.row {
+.row {
 		display: flex;
 		gap: 0.5rem;
 	}
