@@ -23,13 +23,13 @@
 	let userLat = $state(null);
 	let userLng = $state(null);
 	let watchId = null;
+	let hasFlownToUser = false;
 
-	function isUserNearCity(cityName) {
-		if (userLat === null || userLng === null) return false;
+	function isNearCity(lat, lng, cityName) {
 		const center = cityCenters[cityName] || cityCenters['San Francisco'];
 		const dist = Math.sqrt(
-			Math.pow(userLat - center.lat, 2) +
-			Math.pow(userLng - center.lng, 2)
+			Math.pow(lat - center.lat, 2) +
+			Math.pow(lng - center.lng, 2)
 		);
 		return dist < 0.5;
 	}
@@ -56,15 +56,32 @@
 			mapReady = true;
 		});
 
-		// Get user location via browser API
+		// User location — blue dot + fly-to
 		if ('geolocation' in navigator) {
 			watchId = navigator.geolocation.watchPosition(
 				(pos) => {
-					userLat = pos.coords.latitude;
-					userLng = pos.coords.longitude;
+					const lat = pos.coords.latitude;
+					const lng = pos.coords.longitude;
+					userLat = lat;
+					userLng = lng;
+
+					if (!userMarker) {
+						const el = document.createElement('div');
+						el.style.cssText = 'width: 14px; height: 14px; background: #4285F4; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(66,133,244,0.5);';
+						userMarker = new mapboxgl.Marker({ element: el })
+							.setLngLat([lng, lat])
+							.addTo(map);
+
+						if (!hasFlownToUser && isNearCity(lat, lng, city)) {
+							map.flyTo({ center: [lng, lat], zoom: 14, duration: 1500 });
+							hasFlownToUser = true;
+						}
+					} else {
+						userMarker.setLngLat([lng, lat]);
+					}
 				},
 				() => {},
-				{ enableHighAccuracy: true, timeout: 5000 }
+				{ enableHighAccuracy: true, timeout: 10000 }
 			);
 		}
 	});
@@ -75,28 +92,6 @@
 		markers = [];
 		if (userMarker) userMarker.remove();
 		if (map) map.remove();
-	});
-
-	// React to user location updates
-	let hasFlownToUser = false;
-	$effect(() => {
-		if (!map || !mapboxgl || userLat === null || userLng === null) return;
-
-		if (!userMarker) {
-			const el = document.createElement('div');
-			el.style.cssText = 'width: 14px; height: 14px; background: #4285F4; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(66,133,244,0.5);';
-			userMarker = new mapboxgl.Marker({ element: el })
-				.setLngLat([userLng, userLat])
-				.addTo(map);
-
-			// Fly to user on first fix, if near the selected city
-			if (!hasFlownToUser && isUserNearCity(city)) {
-				map.flyTo({ center: [userLng, userLat], zoom: 14, duration: 1500 });
-				hasFlownToUser = true;
-			}
-		} else {
-			userMarker.setLngLat([userLng, userLat]);
-		}
 	});
 
 	function updateMarkers() {
@@ -133,7 +128,6 @@
 	}
 
 	$effect(() => {
-		// Access length and individual items to create proper reactive dependency
 		const _ = places.length && places.map(p => p.id);
 		if (mapReady) updateMarkers();
 	});
@@ -141,7 +135,7 @@
 	$effect(() => {
 		const _ = city;
 		if (map && mapReady) {
-			if (isUserNearCity(city)) {
+			if (userLat !== null && userLng !== null && isNearCity(userLat, userLng, city)) {
 				map.flyTo({ center: [userLng, userLat], zoom: 14, duration: 1000 });
 			} else {
 				const center = cityCenters[city] || cityCenters['San Francisco'];
