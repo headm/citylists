@@ -529,7 +529,7 @@ let enriched = $state(null);
 {/if}
 
 <style>
-	main {
+	main, .modal {
 		max-width: 600px;
 		margin: 0 auto;
 		padding: 1rem;
@@ -619,12 +619,6 @@ let enriched = $state(null);
 		font-family: system-ui, -apple-system, sans-serif;
 	}
 
-	.modal {
-		max-width: 600px;
-		margin: 0 auto;
-		padding: 1rem;
-		padding-top: calc(1rem + env(safe-area-inset-top, 0px));
-	}
 
 .row {
 		display: flex;
