@@ -64,7 +64,6 @@
 					const lng = pos.coords.longitude;
 					userLat = lat;
 					userLng = lng;
-					console.log('[MapView] Got location:', lat, lng, 'map:', !!map, 'mapboxgl:', !!mapboxgl);
 
 					if (!userMarker && map && mapboxgl) {
 						const el = document.createElement('div');
@@ -72,24 +71,18 @@
 						userMarker = new mapboxgl.Marker({ element: el })
 							.setLngLat([lng, lat])
 							.addTo(map);
-						console.log('[MapView] Blue dot added');
 
 						if (!hasFlownToUser && isNearCity(lat, lng, city)) {
 							map.flyTo({ center: [lng, lat], zoom: 14, duration: 1500 });
 							hasFlownToUser = true;
-							console.log('[MapView] Flying to user');
 						}
 					} else if (userMarker) {
 						userMarker.setLngLat([lng, lat]);
 					}
 				},
-				(err) => {
-					console.log('[MapView] Geolocation error:', err.code, err.message);
-				},
+				() => {},
 				{ enableHighAccuracy: true, timeout: 10000 }
 			);
-		} else {
-			console.log('[MapView] Geolocation not available');
 		}
 	});
 
