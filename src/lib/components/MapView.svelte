@@ -16,7 +16,7 @@
 
 	let mapContainer;
 	let map;
-	let markers = [];
+	let popup;
 	let userMarker;
 	let mapboxgl;
 	let mapReady = $state(false);
@@ -32,6 +32,27 @@
 			Math.pow(lng - center.lng, 2)
 		);
 		return dist < 0.5;
+	}
+
+	function placesToGeoJSON(places) {
+		return {
+			type: 'FeatureCollection',
+			features: places
+				.filter((p) => p.Lat && p.Lng)
+				.map((p) => ({
+					type: 'Feature',
+					properties: {
+						name: p.Name,
+						stars: p.Stars || 0,
+						description: p.Description || '',
+						id: p.id
+					},
+					geometry: {
+						type: 'Point',
+						coordinates: [p.Lng, p.Lat]
+					}
+				}))
+		};
 	}
 
 	onMount(async () => {
@@ -52,11 +73,97 @@
 
 		map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
+		popup = new mapboxgl.Popup({ offset: 25, maxWidth: '260px', closeButton: false });
+
 		map.on('load', () => {
+			// Add clustered source
+			map.addSource('places', {
+				type: 'geojson',
+				data: placesToGeoJSON(places),
+				cluster: true,
+				clusterMaxZoom: 15,
+				clusterRadius: 40
+			});
+
+			// Cluster circles
+			map.addLayer({
+				id: 'clusters',
+				type: 'circle',
+				source: 'places',
+				filter: ['has', 'point_count'],
+				paint: {
+					'circle-color': '#111',
+					'circle-radius': ['step', ['get', 'point_count'], 16, 5, 20, 10, 24],
+					'circle-stroke-width': 2,
+					'circle-stroke-color': '#fff'
+				}
+			});
+
+			// Cluster count labels
+			map.addLayer({
+				id: 'cluster-count',
+				type: 'symbol',
+				source: 'places',
+				filter: ['has', 'point_count'],
+				layout: {
+					'text-field': ['get', 'point_count_abbreviated'],
+					'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+					'text-size': 12
+				},
+				paint: {
+					'text-color': '#fff'
+				}
+			});
+
+			// Individual place dots
+			map.addLayer({
+				id: 'unclustered-point',
+				type: 'circle',
+				source: 'places',
+				filter: ['!', ['has', 'point_count']],
+				paint: {
+					'circle-color': '#111',
+					'circle-radius': 6,
+					'circle-stroke-width': 2,
+					'circle-stroke-color': '#fff'
+				}
+			});
+
+			// Click cluster → zoom in
+			map.on('click', 'clusters', async (e) => {
+				const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+				const clusterId = features[0].properties.cluster_id;
+				const zoom = await map.getSource('places').getClusterExpansionZoom(clusterId);
+				map.easeTo({ center: features[0].geometry.coordinates, zoom });
+			});
+
+			// Click individual point → show popup
+			map.on('click', 'unclustered-point', (e) => {
+				const f = e.features[0];
+				const coords = f.geometry.coordinates.slice();
+				const stars = f.properties.stars ? ' ' + '*'.repeat(f.properties.stars) : '';
+				const desc = f.properties.description;
+				const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(f.properties.name + ' ' + city)}`;
+
+				popup.setLngLat(coords).setHTML(
+					`<div style="font-family: system-ui, -apple-system, sans-serif;">
+						<strong style="font-size: 0.9rem;">${f.properties.name}${stars}</strong>
+						${desc ? `<p style="margin: 0.25rem 0; font-size: 0.75rem; color: #555;">${desc}</p>` : ''}
+						<a href="${googleUrl}" target="_blank" rel="noopener" style="font-size: 0.7rem; color: #0066cc; text-decoration: none;">Google</a>
+					</div>`
+				).addTo(map);
+			});
+
+			// Cursor changes
+			map.on('mouseenter', 'clusters', () => { map.getCanvas().style.cursor = 'pointer'; });
+			map.on('mouseleave', 'clusters', () => { map.getCanvas().style.cursor = ''; });
+			map.on('mouseenter', 'unclustered-point', () => { map.getCanvas().style.cursor = 'pointer'; });
+			map.on('mouseleave', 'unclustered-point', () => { map.getCanvas().style.cursor = ''; });
+
 			mapReady = true;
 		});
 
-		// User location — blue dot + fly-to
+		// User location
 		if ('geolocation' in navigator) {
 			watchId = navigator.geolocation.watchPosition(
 				(pos) => {
@@ -88,48 +195,22 @@
 
 	onDestroy(() => {
 		if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-		markers.forEach((m) => m.remove());
-		markers = [];
 		if (userMarker) userMarker.remove();
+		if (popup) popup.remove();
 		if (map) map.remove();
 	});
 
-	function updateMarkers() {
-		if (!map || !mapboxgl) return;
-
-		markers.forEach((m) => m.remove());
-		markers = [];
-
-		for (const place of places) {
-			if (!place.Lat || !place.Lng) continue;
-
-			const stars = place.Stars ? ' ' + '*'.repeat(place.Stars) : '';
-			const desc = place.Description || '';
-			const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(place.Name + ' ' + city)}`;
-
-			const popup = new mapboxgl.Popup({ offset: 25, maxWidth: '260px' }).setHTML(
-				`<div style="font-family: system-ui, -apple-system, sans-serif;">
-					<strong style="font-size: 0.9rem;">${place.Name}${stars}</strong>
-					${desc ? `<p style="margin: 0.25rem 0; font-size: 0.75rem; color: #555;">${desc}</p>` : ''}
-					<a href="${googleUrl}" target="_blank" rel="noopener" style="font-size: 0.7rem; color: #0066cc; text-decoration: none;">Google</a>
-				</div>`
-			);
-
-			const el = document.createElement('div');
-			el.style.cssText = 'width: 12px; height: 12px; background: #111; border-radius: 50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3); cursor: pointer;';
-
-			const marker = new mapboxgl.Marker({ element: el })
-				.setLngLat([place.Lng, place.Lat])
-				.setPopup(popup)
-				.addTo(map);
-
-			markers.push(marker);
+	function updateSource() {
+		if (!map || !mapReady) return;
+		const source = map.getSource('places');
+		if (source) {
+			source.setData(placesToGeoJSON(places));
 		}
 	}
 
 	$effect(() => {
 		const _ = places.length && places.map(p => p.id);
-		if (mapReady) updateMarkers();
+		if (mapReady) updateSource();
 	});
 
 	$effect(() => {
