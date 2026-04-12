@@ -9,31 +9,12 @@
 
 	let showAddForm = $state(false);
 	let viewMode = $state('list');
+	let showCityPicker = $state(false);
 	let addName = $state('');
 	let enriching = $state(false);
 	let saving = $state(false);
 
-	function sizeSelect(el) {
-		const temp = document.createElement('span');
-		const styles = window.getComputedStyle(el);
-		temp.style.font = styles.font;
-		temp.style.fontSize = styles.fontSize;
-		temp.style.fontWeight = styles.fontWeight;
-		temp.style.fontFamily = styles.fontFamily;
-		temp.style.position = 'absolute';
-		temp.style.visibility = 'hidden';
-		temp.style.whiteSpace = 'nowrap';
-		temp.textContent = el.options[el.selectedIndex].text;
-		document.body.appendChild(temp);
-		el.style.width = (temp.offsetWidth + 24) + 'px';
-		document.body.removeChild(temp);
-	}
-
-	function autoSizeSelect(el) {
-		sizeSelect(el);
-		return {};
-	}
-	let enriched = $state(null);
+let enriched = $state(null);
 	let fieldOptions = $state({ Category: [], Type: [] });
 	let duplicateWarning = $state(null);
 
@@ -319,18 +300,17 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<main onclick={(e) => { if (!e.target.closest('.tag-wrap')) editingTag = null; }}>
+<main onclick={(e) => { if (!e.target.closest('.tag-wrap')) editingTag = null; if (!e.target.closest('h1')) showCityPicker = false; }}>
 	<header>
 		<h1>
-			<select
-				value={$selectedCity}
-				onchange={(e) => { selectCity(e.target.value); sizeSelect(e.target); }}
-				use:autoSizeSelect
-			>
-				{#each cities as city}
-					<option value={city}>{city}</option>
-				{/each}
-			</select>
+			<span class="city-title" onclick={() => { showCityPicker = !showCityPicker; }}>{$selectedCity} <span class="chevron">&#9662;</span></span>
+			{#if showCityPicker}
+				<div class="city-dropdown">
+					{#each cities as c}
+						<button class:active={$selectedCity === c} onclick={() => { selectCity(c); showCityPicker = false; }}>{c}</button>
+					{/each}
+				</div>
+			{/if}
 		</h1>
 		<div class="header-actions">
 			<button class="add-btn" onclick={() => { viewMode = viewMode === 'list' ? 'map' : 'list'; }}>
@@ -557,23 +537,49 @@
 
 	header h1 {
 		margin: 0;
-		flex: 1;
-		min-width: 0;
-		font-size: 1.8rem;
+		position: relative;
 	}
 
-	header h1 select {
-		font-size: inherit;
-		font-weight: inherit;
-		font-family: inherit;
-		border: none;
-		outline: none;
-		background: none;
+	.city-title {
 		cursor: pointer;
-		padding: 0;
-		margin: 0;
-		width: auto;
-		max-width: 100%;
+	}
+
+	.chevron {
+		font-size: 0.6em;
+		color: #888;
+	}
+
+	.city-dropdown {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		background: white;
+		border: 1px solid #ddd;
+		border-radius: 8px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+		z-index: 30;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		min-width: 180px;
+	}
+
+	.city-dropdown button {
+		padding: 0.6rem 1rem;
+		border: none;
+		background: none;
+		text-align: left;
+		font-size: 1rem;
+		cursor: pointer;
+		color: #333;
+	}
+
+	.city-dropdown button:hover {
+		background: #f5f5f5;
+	}
+
+	.city-dropdown button.active {
+		font-weight: 600;
 	}
 
 	.header-actions {
