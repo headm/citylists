@@ -14,6 +14,11 @@
 		'Tokyo': { lng: 139.69, lat: 35.68, zoom: 11.5 }
 	};
 
+	const MODE_COLORS = {
+		'Food & Drink': '#E07A5F',
+		'Things to Do': '#457B9D'
+	};
+
 	let mapContainer;
 	let map;
 	let popup;
@@ -32,6 +37,22 @@
 			Math.pow(lng - center.lng, 2)
 		);
 		return dist < 0.5;
+	}
+
+	// Generate a GeoJSON circle polygon (no turf dependency)
+	function createCircle(lng, lat, radiusKm, points = 64) {
+		const coords = [];
+		const earthRadius = 6371; // km
+		for (let i = 0; i <= points; i++) {
+			const angle = (i / points) * 2 * Math.PI;
+			const dLat = (radiusKm / earthRadius) * Math.cos(angle);
+			const dLng = (radiusKm / earthRadius) * Math.sin(angle) / Math.cos(lat * Math.PI / 180);
+			coords.push([lng + dLng * (180 / Math.PI), lat + dLat * (180 / Math.PI)]);
+		}
+		return {
+			type: 'Feature',
+			geometry: { type: 'Polygon', coordinates: [coords] }
+		};
 	}
 
 	function placesToGeoJSON(places) {
@@ -59,7 +80,13 @@
 							name: p.Name,
 							stars: p.Stars || 0,
 							description: p.Description || '',
-							id: p.id
+							id: p.id,
+							mode: p.Mode || '',
+							cuisine: Array.isArray(p.Cuisine) ? p.Cuisine.join(', ') : (p.Cuisine || ''),
+							category: p.Category || '',
+							type: p.Type || '',
+							priceLevel: p.PriceLevel || '',
+							photoReference: p.Photo || ''
 						},
 						geometry: {
 							type: 'Point',
@@ -68,6 +95,47 @@
 					};
 				})
 		};
+	}
+
+	function buildPlacePopupHTML(props) {
+		const stars = props.stars ? ' ' + '*'.repeat(props.stars) : '';
+		const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(props.name + ' ' + city)}`;
+		const modeColor = MODE_COLORS[props.mode] || '#111';
+
+		let html = '<div style="font-family: system-ui, -apple-system, sans-serif;">';
+
+		// Photo
+		if (props.photoReference) {
+			html += `<img src="/api/photo?ref=${encodeURIComponent(props.photoReference)}&maxWidthPx=280&maxHeightPx=150" style="width:100%; max-height:120px; object-fit:cover; border-radius:6px; margin-bottom:0.4rem;" alt="" />`;
+		}
+
+		// Name + stars
+		html += `<strong style="font-size: 0.9rem;">${props.name}${stars}</strong>`;
+
+		// Price level
+		if (props.priceLevel) {
+			html += ` <span style="font-size: 0.75rem; color: #888;">${props.priceLevel}</span>`;
+		}
+
+		// Tags row
+		const tags = [props.cuisine, props.category, props.type].filter(Boolean);
+		if (tags.length) {
+			html += '<div style="margin: 0.3rem 0; display: flex; flex-wrap: wrap; gap: 0.2rem;">';
+			for (const tag of tags) {
+				html += `<span style="font-size: 0.65rem; padding: 0.1rem 0.35rem; background: #f0f0f0; border-radius: 4px; color: #555;">${tag}</span>`;
+			}
+			html += '</div>';
+		}
+
+		// Description
+		if (props.description) {
+			html += `<p style="margin: 0.25rem 0 0.3rem; font-size: 0.75rem; color: #555;">${props.description}</p>`;
+		}
+
+		// Google link
+		html += `<a href="${googleUrl}" target="_blank" rel="noopener" style="font-size: 0.7rem; color: #0066cc; text-decoration: none;">Google</a>`;
+		html += '</div>';
+		return html;
 	}
 
 	onMount(async () => {
@@ -88,90 +156,91 @@
 
 		map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-		popup = new mapboxgl.Popup({ offset: 25, maxWidth: '260px', closeButton: false });
+		popup = new mapboxgl.Popup({ offset: 25, maxWidth: '280px', closeButton: false });
 
 		map.on('load', () => {
-			// Add clustered source
+			// Walking distance ring source (empty until user location acquired)
+			map.addSource('walk-ring', {
+				type: 'geojson',
+				data: { type: 'FeatureCollection', features: [] }
+			});
+
+			map.addLayer({
+				id: 'walk-ring-fill',
+				type: 'fill',
+				source: 'walk-ring',
+				paint: {
+					'fill-color': 'rgba(66, 133, 244, 0.06)',
+				}
+			});
+
+			map.addLayer({
+				id: 'walk-ring-border',
+				type: 'line',
+				source: 'walk-ring',
+				paint: {
+					'line-color': 'rgba(66, 133, 244, 0.25)',
+					'line-width': 1.5,
+					'line-dasharray': [4, 3]
+				}
+			});
+
+			// Places source (no clustering)
 			map.addSource('places', {
 				type: 'geojson',
-				data: placesToGeoJSON(places),
-				cluster: true,
-				clusterMaxZoom: 15,
-				clusterRadius: 40
+				data: placesToGeoJSON(places)
 			});
 
-			// Cluster circles
-			map.addLayer({
-				id: 'clusters',
-				type: 'circle',
-				source: 'places',
-				filter: ['has', 'point_count'],
-				paint: {
-					'circle-color': '#111',
-					'circle-radius': ['step', ['get', 'point_count'], 16, 5, 20, 10, 24],
-					'circle-stroke-width': 2,
-					'circle-stroke-color': '#fff'
-				}
-			});
-
-			// Cluster count labels
-			map.addLayer({
-				id: 'cluster-count',
-				type: 'symbol',
-				source: 'places',
-				filter: ['has', 'point_count'],
-				layout: {
-					'text-field': ['get', 'point_count_abbreviated'],
-					'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
-					'text-size': 12
-				},
-				paint: {
-					'text-color': '#fff'
-				}
-			});
-
-			// Individual place dots
+			// Place dots — color-coded by mode
 			map.addLayer({
 				id: 'unclustered-point',
 				type: 'circle',
 				source: 'places',
-				filter: ['!', ['has', 'point_count']],
 				paint: {
-					'circle-color': '#111',
+					'circle-color': [
+						'match', ['get', 'mode'],
+						'Food & Drink', '#E07A5F',
+						'Things to Do', '#457B9D',
+						'#111'
+					],
 					'circle-radius': 6,
 					'circle-stroke-width': 2,
 					'circle-stroke-color': '#fff'
 				}
 			});
 
-			// Click cluster → zoom in
-			map.on('click', 'clusters', (e) => {
-				const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
-				if (!features.length) return;
-				const coords = features[0].geometry.coordinates;
-				map.easeTo({ center: coords, zoom: map.getZoom() + 3, duration: 500 });
+			// Place name labels at higher zoom
+			map.addLayer({
+				id: 'place-labels',
+				type: 'symbol',
+				source: 'places',
+				minzoom: 14,
+				layout: {
+					'text-field': ['get', 'name'],
+					'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+					'text-size': 11,
+					'text-offset': [0, 1.2],
+					'text-anchor': 'top',
+					'text-allow-overlap': false,
+					'text-optional': true
+				},
+				paint: {
+					'text-color': '#333',
+					'text-halo-color': '#fff',
+					'text-halo-width': 1
+				}
 			});
 
-			// Click individual point → show popup
+			// Click point → show rich popup
 			map.on('click', 'unclustered-point', (e) => {
 				const f = e.features[0];
 				const coords = f.geometry.coordinates.slice();
-				const stars = f.properties.stars ? ' ' + '*'.repeat(f.properties.stars) : '';
-				const desc = f.properties.description;
-				const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(f.properties.name + ' ' + city)}`;
-
-				popup.setLngLat(coords).setHTML(
-					`<div style="font-family: system-ui, -apple-system, sans-serif;">
-						<strong style="font-size: 0.9rem;">${f.properties.name}${stars}</strong>
-						${desc ? `<p style="margin: 0.25rem 0; font-size: 0.75rem; color: #555;">${desc}</p>` : ''}
-						<a href="${googleUrl}" target="_blank" rel="noopener" style="font-size: 0.7rem; color: #0066cc; text-decoration: none;">Google</a>
-					</div>`
-				).addTo(map);
+				popup.setLngLat(coords)
+					.setHTML(buildPlacePopupHTML(f.properties))
+					.addTo(map);
 			});
 
 			// Cursor changes
-			map.on('mouseenter', 'clusters', () => { map.getCanvas().style.cursor = 'pointer'; });
-			map.on('mouseleave', 'clusters', () => { map.getCanvas().style.cursor = ''; });
 			map.on('mouseenter', 'unclustered-point', () => { map.getCanvas().style.cursor = 'pointer'; });
 			map.on('mouseleave', 'unclustered-point', () => { map.getCanvas().style.cursor = ''; });
 
@@ -186,6 +255,17 @@
 					const lng = pos.coords.longitude;
 					userLat = lat;
 					userLng = lng;
+
+					// Update walking ring
+					if (map && mapReady) {
+						const ringSource = map.getSource('walk-ring');
+						if (ringSource) {
+							ringSource.setData({
+								type: 'FeatureCollection',
+								features: [createCircle(lng, lat, 1.6)]
+							});
+						}
+					}
 
 					if (!userMarker && map && mapboxgl) {
 						const el = document.createElement('div');
@@ -246,8 +326,16 @@
 <style>
 	.map-container {
 		width: 100%;
-		height: 60vh;
-		border-radius: 8px;
+		height: calc(100vh - 120px);
+		height: calc(100dvh - 120px);
 		overflow: hidden;
+	}
+
+	@media (max-width: 600px) {
+		.map-container {
+			border-radius: 0;
+			height: calc(100vh - 110px);
+			height: calc(100dvh - 110px);
+		}
 	}
 </style>

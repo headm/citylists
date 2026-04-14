@@ -157,7 +157,10 @@ let enriched = $state(null);
 				URL: enriched.url || '',
 				Address: enriched.address || '',
 				Lat: enriched.lat || null,
-				Lng: enriched.lng || null
+				Lng: enriched.lng || null,
+				Photo: enriched.photoReference || '',
+				PriceLevel: enriched.priceLevel || '',
+				Hours: enriched.hours || ''
 			};
 			const res = await fetch('/api/places', {
 				method: 'POST',
@@ -528,6 +531,13 @@ let enriched = $state(null);
 
 				{#if enriched}
 					<div class="fields">
+						{#if enriched.photoReference}
+							<img
+								src={`/api/photo?ref=${encodeURIComponent(enriched.photoReference)}&maxWidthPx=560`}
+								alt={addName}
+								class="enriched-photo"
+							/>
+						{/if}
 						<label>
 							Neighborhood
 							<input bind:value={enriched.neighborhood} />
@@ -566,10 +576,22 @@ let enriched = $state(null);
 								<option value={3}>***</option>
 							</select>
 						</label>
+						{#if enriched.priceLevel}
+							<label>
+								Price Level
+								<input bind:value={enriched.priceLevel} />
+							</label>
+						{/if}
 						<label>
 							Description
 							<input bind:value={enriched.description} />
 						</label>
+						{#if enriched.hours}
+							<label>
+								Hours
+								<textarea bind:value={enriched.hours} rows="4" readonly></textarea>
+							</label>
+						{/if}
 						<label>
 							URL
 							<input bind:value={enriched.url} placeholder="Optional" />
@@ -823,6 +845,23 @@ let enriched = $state(null);
 		display: flex;
 		flex-direction: column;
 		gap: 0.2rem;
+	}
+
+	.enriched-photo {
+		width: 100%;
+		max-height: 200px;
+		object-fit: cover;
+		border-radius: 8px;
+	}
+
+	.fields textarea {
+		padding: 0.4rem 0.5rem;
+		border: 1px solid #ccc;
+		border-radius: 6px;
+		font-size: 0.85rem;
+		background: #f5f5f5;
+		resize: none;
+		font-family: inherit;
 	}
 
 	.fields input,
