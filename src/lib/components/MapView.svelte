@@ -325,17 +325,23 @@
 
 <style>
 	.map-container {
-		width: 100%;
 		height: calc(100vh - 120px);
 		height: calc(100dvh - 120px);
 		overflow: hidden;
+		border-radius: 8px;
+		margin-left: -8px;
+		margin-right: -8px;
+		width: calc(100% + 16px);
 	}
 
 	@media (max-width: 600px) {
 		.map-container {
-			border-radius: 0;
 			height: calc(100vh - 110px);
 			height: calc(100dvh - 110px);
+			margin-left: -8px;
+			margin-right: -8px;
+			width: calc(100% + 16px);
+			border-radius: 0;
 		}
 	}
 </style>

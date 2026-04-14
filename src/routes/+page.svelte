@@ -78,7 +78,7 @@ let enriched = $state(null);
 					lastDirection = 'down';
 					scrollAnchor = y;
 				}
-				if (filteredPlaces.length > 0) setControlsVisible(false);
+				if (filteredPlaces.length > 0 && viewMode !== 'map') setControlsVisible(false);
 			} else if (y < lastScrollY) {
 				// Ignore rubber-band bounce at the bottom of the page
 				const atBottom = window.innerHeight + y >= document.documentElement.scrollHeight - 5;
