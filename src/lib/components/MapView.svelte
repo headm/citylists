@@ -104,9 +104,9 @@
 
 		let html = '<div style="font-family: system-ui, -apple-system, sans-serif;">';
 
-		// Photo
+		// Photo — hidden until loaded to prevent layout jump
 		if (props.photoReference) {
-			html += `<img src="/api/photo?ref=${encodeURIComponent(props.photoReference)}&maxWidthPx=280&maxHeightPx=150" style="width:100%; max-height:120px; object-fit:cover; border-radius:6px; margin-bottom:0.4rem;" alt="" />`;
+			html += `<img src="/api/photo?ref=${encodeURIComponent(props.photoReference)}&maxWidthPx=280&maxHeightPx=150" style="display:none; width:100%; max-height:120px; object-fit:cover; border-radius:6px; margin-bottom:0.4rem;" alt="" onload="this.style.display='block'" />`;
 		}
 
 		// Name + stars
