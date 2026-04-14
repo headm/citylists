@@ -397,13 +397,6 @@ let enriched = $state(null);
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
 					{#if hasActiveFilters}<span class="header-badge">{totalFilterCount}</span>{/if}
 				</button>
-				<button class="add-btn" onclick={() => { viewMode = viewMode === 'list' ? 'map' : 'list'; }}>
-					{#if viewMode === 'list'}
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-					{:else}
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-					{/if}
-				</button>
 				<button class="add-btn" onclick={() => { if (showAddForm) { resetForm(); } else { showAddForm = true; } }}>
 					{showAddForm ? '\u00d7' : '+'}
 				</button>
@@ -505,6 +498,16 @@ let enriched = $state(null);
 		</section>
 	{/if}
 </main>
+
+<button class="view-toggle-pill" onclick={() => { viewMode = viewMode === 'list' ? 'map' : 'list'; }}>
+	{#if viewMode === 'list'}
+		<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+		Map
+	{:else}
+		<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+		List
+	{/if}
+</button>
 
 {#if showAddForm}
 	<div class="modal-overlay">
@@ -637,6 +640,27 @@ let enriched = $state(null);
 {/if}
 
 <style>
+	.view-toggle-pill {
+		position: fixed;
+		bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 20;
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.5rem 1.1rem;
+		background: #111;
+		color: white;
+		border: none;
+		border-radius: 999px;
+		font-size: 0.85rem;
+		font-weight: 500;
+		font-family: system-ui, -apple-system, sans-serif;
+		cursor: pointer;
+		box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+	}
+
 	main {
 		max-width: 600px;
 		margin: 0 auto;
