@@ -47,7 +47,8 @@ let enriched = $state(null);
 
 		function updateHeaderHeight() {
 			if (stickyHeaderEl) {
-				document.documentElement.style.setProperty('--sticky-header-height', stickyHeaderEl.offsetHeight + 'px');
+				const rect = stickyHeaderEl.getBoundingClientRect();
+				document.documentElement.style.setProperty('--sticky-header-height', rect.bottom + 'px');
 			}
 		}
 
@@ -58,12 +59,20 @@ let enriched = $state(null);
 			}
 		}
 
+		// Ignore scroll deltas smaller than this — filters out Chrome mobile
+		// address bar expand/collapse which fires scroll events without real user scroll
+		const SCROLL_NOISE_THRESHOLD = 2;
+
 		function onScroll() {
 			const y = window.scrollY;
+			const delta = Math.abs(y - lastScrollY);
+
 			if (y < 10) {
 				setControlsVisible(true);
 				lastDirection = 'up';
 				scrollAnchor = y;
+			} else if (delta < SCROLL_NOISE_THRESHOLD) {
+				// Skip — likely Chrome address bar animation, not a real scroll
 			} else if (y > lastScrollY) {
 				if (lastDirection !== 'down') {
 					lastDirection = 'down';
