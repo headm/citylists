@@ -188,9 +188,9 @@ let enriched = $state(null);
 
 	const modeConfig = {
 		'Food & Drink': {
-			groupOptions: ['Category', 'Neighborhood', 'Type'],
+			groupOptions: ['Neighborhood', 'Category', 'Type'],
 			filterFields: ['Neighborhood', 'Category', 'Type', 'Cuisine'],
-			defaultGroup: 'Category'
+			defaultGroup: 'Neighborhood'
 		},
 		'Things to Do': {
 			groupOptions: ['Neighborhood'],
@@ -212,7 +212,7 @@ let enriched = $state(null);
 	}
 
 	// --- Grouping & Filtering ---
-	let groupBy = $state('Category');
+	let groupBy = $state('Neighborhood');
 	let activeFilters = $state({ Neighborhood: new Set(), Category: new Set(), Type: new Set(), Cuisine: new Set() });
 
 	let currentFilterFields = $derived(modeConfig[selectedMode].filterFields);
