@@ -80,11 +80,13 @@ let enriched = $state(null);
 				}
 				if (filteredPlaces.length > 0) setControlsVisible(false);
 			} else if (y < lastScrollY) {
+				// Ignore rubber-band bounce at the bottom of the page
+				const atBottom = window.innerHeight + y >= document.documentElement.scrollHeight - 5;
 				if (lastDirection !== 'up') {
 					lastDirection = 'up';
 					scrollAnchor = y;
 				}
-				if (scrollAnchor - y > 15) {
+				if (scrollAnchor - y > 15 && !atBottom) {
 					setControlsVisible(true);
 				}
 			}
