@@ -760,12 +760,15 @@ let enriched = $state(null);
 		border-radius: 50%;
 		border: 1px solid #ccc;
 		background: white;
+		color: #111;
 		font-size: 1.2rem;
+		line-height: 1;
 		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		position: relative;
+		-webkit-appearance: none;
 	}
 
 	.add-btn.has-selections {
