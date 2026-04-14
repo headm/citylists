@@ -649,7 +649,7 @@ let enriched = $state(null);
 		display: flex;
 		align-items: center;
 		gap: 0.35rem;
-		padding: 0.5rem 1.1rem;
+		padding: 1rem 1.75rem;
 		background: #111;
 		color: white;
 		border: none;
