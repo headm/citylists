@@ -338,9 +338,8 @@
 		.map-container {
 			height: calc(100vh - 110px);
 			height: calc(100dvh - 110px);
-			margin-left: -8px;
-			margin-right: -8px;
-			width: calc(100% + 16px);
+			width: 100vw;
+			margin-left: calc(-1rem - 8px);
 			border-radius: 0;
 		}
 	}
