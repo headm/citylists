@@ -214,7 +214,7 @@
 				id: 'place-labels',
 				type: 'symbol',
 				source: 'places',
-				minzoom: 14,
+				minzoom: 13,
 				layout: {
 					'text-field': ['get', 'name'],
 					'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
@@ -275,7 +275,7 @@
 							.addTo(map);
 
 						if (!hasFlownToUser && isNearCity(lat, lng, city)) {
-							map.flyTo({ center: [lng, lat], zoom: 14, duration: 1500 });
+							map.flyTo({ center: [lng, lat], zoom: 13, duration: 1500 });
 							hasFlownToUser = true;
 						}
 					} else if (userMarker) {
@@ -312,7 +312,7 @@
 		const _ = city;
 		if (map && mapReady) {
 			if (userLat !== null && userLng !== null && isNearCity(userLat, userLng, city)) {
-				map.flyTo({ center: [userLng, userLat], zoom: 14, duration: 1000 });
+				map.flyTo({ center: [userLng, userLat], zoom: 13, duration: 1000 });
 			} else {
 				const center = cityCenters[city] || cityCenters['San Francisco'];
 				map.flyTo({ center: [center.lng, center.lat], zoom: center.zoom, duration: 1000 });
