@@ -203,8 +203,17 @@
 						'Things to Do', '#457B9D',
 						'#111'
 					],
-					'circle-radius': 6,
-					'circle-stroke-width': 2,
+					'circle-radius': [
+						'interpolate', ['linear'], ['zoom'],
+						10, 4,
+						12, 7,
+						14, 10
+					],
+					'circle-stroke-width': [
+						'interpolate', ['linear'], ['zoom'],
+						10, 1,
+						14, 2.5
+					],
 					'circle-stroke-color': '#fff'
 				}
 			});
