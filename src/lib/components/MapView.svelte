@@ -206,12 +206,13 @@
 					'circle-radius': [
 						'interpolate', ['linear'], ['zoom'],
 						10, 4,
-						12, 7,
+						12, 9,
 						14, 10
 					],
 					'circle-stroke-width': [
 						'interpolate', ['linear'], ['zoom'],
 						10, 1,
+						12, 2,
 						14, 2.5
 					],
 					'circle-stroke-color': '#fff'
