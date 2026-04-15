@@ -1,6 +1,7 @@
 import { AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME } from '$env/static/private';
 
 const BASE_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_TABLE_NAME)}`;
+const CANDIDATES_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent('Candidates')}`;
 
 const headers = {
 	Authorization: `Bearer ${AIRTABLE_TOKEN}`,
@@ -144,4 +145,84 @@ export async function createPlace(fields) {
 		id: data.id,
 		...data.fields
 	};
+}
+
+// ── Candidates table ──
+
+/**
+ * Fetch candidates, optionally filtered by city and status.
+ */
+export async function fetchCandidates(city, status = 'Pending') {
+	const allRecords = [];
+	let offset;
+
+	do {
+		const url = new URL(CANDIDATES_URL);
+		const parts = [];
+		if (city) parts.push(`{City} = "${city}"`);
+		if (status) parts.push(`{Status} = "${status}"`);
+		if (parts.length) {
+			url.searchParams.set('filterByFormula', parts.length === 1 ? parts[0] : `AND(${parts.join(', ')})`);
+		}
+		url.searchParams.set('pageSize', '100');
+		if (offset) url.searchParams.set('offset', offset);
+
+		const response = await fetch(url, { headers });
+		if (!response.ok) {
+			const body = await response.text();
+			throw new Error(`Airtable candidates fetch failed (${response.status}): ${body}`);
+		}
+		const data = await response.json();
+		allRecords.push(...data.records);
+		offset = data.offset;
+	} while (offset);
+
+	return allRecords.map((record) => ({ id: record.id, ...record.fields }));
+}
+
+/**
+ * Fetch a single candidate by ID.
+ */
+export async function fetchCandidateById(id) {
+	const response = await fetch(`${CANDIDATES_URL}/${id}`, { headers });
+	if (!response.ok) {
+		const body = await response.text();
+		throw new Error(`Airtable candidate fetch failed (${response.status}): ${body}`);
+	}
+	const data = await response.json();
+	return { id: data.id, ...data.fields };
+}
+
+/**
+ * Create a new candidate record.
+ */
+export async function createCandidate(fields) {
+	const response = await fetch(CANDIDATES_URL, {
+		method: 'POST',
+		headers,
+		body: JSON.stringify({ fields, typecast: true })
+	});
+	if (!response.ok) {
+		const body = await response.text();
+		throw new Error(`Airtable candidate create failed (${response.status}): ${body}`);
+	}
+	const data = await response.json();
+	return { id: data.id, ...data.fields };
+}
+
+/**
+ * Update a candidate record.
+ */
+export async function updateCandidate(id, fields) {
+	const response = await fetch(`${CANDIDATES_URL}/${id}`, {
+		method: 'PATCH',
+		headers,
+		body: JSON.stringify({ fields, typecast: true })
+	});
+	if (!response.ok) {
+		const body = await response.text();
+		throw new Error(`Airtable candidate update failed (${response.status}): ${body}`);
+	}
+	const data = await response.json();
+	return { id: data.id, ...data.fields };
 }

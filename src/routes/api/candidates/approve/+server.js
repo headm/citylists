@@ -1,0 +1,52 @@
+import { json } from '@sveltejs/kit';
+import { fetchCandidateById, updateCandidate, createPlace, fetchFieldOptions, fetchNeighborhoodsForCity } from '$lib/server/airtable.js';
+import { enrichPlace } from '$lib/server/enrich.js';
+
+export async function POST({ request }) {
+	const { id } = await request.json();
+	if (!id) return json({ error: 'id is required' }, { status: 400 });
+
+	try {
+		// Fetch the candidate
+		const candidate = await fetchCandidateById(id);
+
+		// Run full enrichment (Claude classification + Google Places)
+		const [fieldOptions, cityNeighborhoods] = await Promise.all([
+			fetchFieldOptions(),
+			fetchNeighborhoodsForCity(candidate.City)
+		]);
+		fieldOptions.Neighborhood = cityNeighborhoods;
+
+		const enriched = await enrichPlace(candidate.Name, candidate.City, fieldOptions);
+
+		// Build place fields, preferring enriched data but falling back to candidate data
+		const fields = {
+			Name: enriched.correctedName || candidate.Name,
+			City: candidate.City,
+			Mode: enriched.mode || 'Food & Drink',
+			Neighborhood: enriched.neighborhood ? [].concat(enriched.neighborhood) : [],
+			Cuisine: enriched.cuisine ? [].concat(enriched.cuisine) : [],
+			Category: enriched.category || '',
+			Type: enriched.type || '',
+			Description: enriched.description || candidate.Description || '',
+			Stars: enriched.stars || 0,
+			Address: enriched.address || candidate.Address || '',
+			Lat: enriched.lat || candidate.Lat || null,
+			Lng: enriched.lng || candidate.Lng || null,
+			Photo: enriched.photoReference || candidate.Photo || '',
+			PriceLevel: enriched.priceLevel || candidate.PriceLevel || '',
+			Hours: enriched.hours || candidate.Hours || '',
+			URL: enriched.url || ''
+		};
+
+		// Create in Places table
+		const place = await createPlace(fields);
+
+		// Mark candidate as approved
+		await updateCandidate(id, { Status: 'Approved' });
+
+		return json(place);
+	} catch (err) {
+		return json({ error: err.message }, { status: 502 });
+	}
+}
