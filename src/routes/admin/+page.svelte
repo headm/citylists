@@ -38,6 +38,9 @@
 			});
 			if (res.ok) {
 				candidates = candidates.filter((c) => c.id !== id);
+			} else if (res.status === 409) {
+				// Duplicate — auto-dismissed by server
+				candidates = candidates.filter((c) => c.id !== id);
 			}
 		} finally {
 			processingId = null;

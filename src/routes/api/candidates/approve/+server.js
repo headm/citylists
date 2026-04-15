@@ -1,6 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { fetchCandidateById, updateCandidate, createPlace, fetchFieldOptions, fetchNeighborhoodsForCity } from '$lib/server/airtable.js';
+import { fetchCandidateById, updateCandidate, createPlace, fetchPlaces, fetchFieldOptions, fetchNeighborhoodsForCity } from '$lib/server/airtable.js';
 import { enrichPlace } from '$lib/server/enrich.js';
+
+function normalize(s) {
+	return s.toLowerCase().replace(/[''`\-\.]/g, '').replace(/\s+/g, ' ').trim();
+}
 
 export async function POST({ request }) {
 	const { id } = await request.json();
@@ -9,6 +13,16 @@ export async function POST({ request }) {
 	try {
 		// Fetch the candidate
 		const candidate = await fetchCandidateById(id);
+
+		// Check for duplicates in Places table
+		const existingPlaces = await fetchPlaces(candidate.City);
+		const candidateName = normalize(candidate.Name);
+		const duplicate = existingPlaces.find((p) => normalize(p.Name) === candidateName);
+		if (duplicate) {
+			// Auto-dismiss the duplicate candidate
+			await updateCandidate(id, { Status: 'Dismissed' });
+			return json({ error: `"${candidate.Name}" already exists in your places list` }, { status: 409 });
+		}
 
 		// Run full enrichment (Claude classification + Google Places)
 		const [fieldOptions, cityNeighborhoods] = await Promise.all([
