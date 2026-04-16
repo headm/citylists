@@ -3,19 +3,71 @@
 	import { browser } from '$app/environment';
 
 	const cities = ['San Francisco', 'New York', 'Paris', 'Tokyo'];
-	const sources = ['All', 'Eater', 'Infatuation', 'Google', 'Yelp'];
-
 	let candidates = $state([]);
 	let selectedCity = $state('San Francisco');
-	let selectedSource = $state('All');
+	let showCityPicker = $state(false);
 	let loading = $state(false);
 	let processingId = $state(null);
+	let pipelineRunning = $state(false);
+	let pipelineLog = $state([]);
+	let showPipelineLog = $state(false);
+	let logContainer;
 
-	let filteredCandidates = $derived(
-		selectedSource === 'All'
-			? candidates
-			: candidates.filter((c) => c.Source === selectedSource)
-	);
+	async function runPipeline() {
+		pipelineRunning = true;
+		pipelineLog = [];
+		showPipelineLog = true;
+
+		try {
+			const res = await fetch('/api/candidates/discover', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ city: selectedCity })
+			});
+
+			if (res.status === 409) {
+				pipelineLog = ['Pipeline is already running.'];
+				pipelineRunning = false;
+				return;
+			}
+
+			if (!res.ok) {
+				pipelineLog = [`Error: ${res.status}`];
+				pipelineRunning = false;
+				return;
+			}
+
+			const reader = res.body.getReader();
+			const decoder = new TextDecoder();
+			let buffer = '';
+
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				buffer += decoder.decode(value, { stream: true });
+				const lines = buffer.split('\n');
+				buffer = lines.pop();
+				for (const line of lines) {
+					if (!line.startsWith('data: ')) continue;
+					try {
+						const event = JSON.parse(line.slice(6));
+						if (event.done) {
+							pipelineRunning = false;
+							loadCandidates();
+						} else if (event.log) {
+							pipelineLog = [...pipelineLog, event.log];
+							if (logContainer) {
+								requestAnimationFrame(() => { logContainer.scrollTop = logContainer.scrollHeight; });
+							}
+						}
+					} catch {}
+				}
+			}
+		} catch (err) {
+			pipelineLog = [...pipelineLog, `Error: ${err.message}`];
+		}
+		pipelineRunning = false;
+	}
 
 	async function loadCandidates() {
 		loading = true;
@@ -75,38 +127,49 @@
 	<title>Candidates — City Lists</title>
 </svelte:head>
 
-<main>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<main onclick={(e) => { if (!e.target.closest('h1')) showCityPicker = false; }}>
 	<header>
-		<h1>{selectedCity} <span class="subtitle">Candidates</span></h1>
-		<a href="/" class="back-link">← Back</a>
+		<h1>
+			<span class="city-title" onclick={() => { showCityPicker = !showCityPicker; }}>{selectedCity} <span class="chevron">&#9662;</span></span>
+			{#if showCityPicker}
+				<div class="city-dropdown">
+					{#each cities as c}
+						<button class:active={selectedCity === c} onclick={() => { selectedCity = c; showCityPicker = false; }}>{c}</button>
+					{/each}
+				</div>
+			{/if}
+			<span class="subtitle">Candidates</span>
+		</h1>
+		<div class="header-actions">
+			<button class="btn-pipeline" disabled={pipelineRunning} onclick={runPipeline}>
+				{pipelineRunning ? 'Running...' : 'Run Discovery'}
+			</button>
+			<a href="/" class="back-link">← Back</a>
+		</div>
 	</header>
 
-	<div class="city-tabs">
-		{#each cities as city}
-			<button class:active={selectedCity === city} onclick={() => { selectedCity = city; }}>
-				{city}
-			</button>
-		{/each}
-	</div>
-
-	<div class="source-tabs">
-		{#each sources as source}
-			<button class:active={selectedSource === source} onclick={() => { selectedSource = source; }}>
-				{source}
-			</button>
-		{/each}
-	</div>
+	{#if showPipelineLog}
+		<div class="pipeline-log" bind:this={logContainer}>
+			{#each pipelineLog as line}
+				<div>{line}</div>
+			{/each}
+			{#if pipelineRunning}
+				<div class="log-spinner">...</div>
+			{/if}
+		</div>
+	{/if}
 
 	<p class="count">
 		{#if loading}
 			Loading…
 		{:else}
-			{filteredCandidates.length} pending candidate{filteredCandidates.length !== 1 ? 's' : ''}
+			{candidates.length} pending candidate{candidates.length !== 1 ? 's' : ''}
 		{/if}
 	</p>
 
 	<div class="card-list">
-		{#each filteredCandidates as candidate (candidate.id)}
+		{#each candidates as candidate (candidate.id)}
 			{@const isProcessing = processingId === candidate.id}
 			<div class="card" class:processing={isProcessing}>
 				{#if candidate.Photo}
@@ -121,10 +184,7 @@
 
 				<div class="card-body">
 					<div class="card-header">
-						<strong class="card-name">{candidate.Name}</strong>
-						{#if candidate.Source}
-							<span class="source-badge" data-source={candidate.Source}>{candidate.Source}</span>
-						{/if}
+						<a class="card-name" href={`https://www.google.com/search?q=${encodeURIComponent(candidate.Name + ' ' + selectedCity)}`} target="_blank" rel="noopener"><strong>{candidate.Name}</strong></a>
 					</div>
 
 					{#if candidate.PriceLevel}
@@ -160,7 +220,7 @@
 		{/each}
 	</div>
 
-	{#if !loading && filteredCandidates.length === 0}
+	{#if !loading && candidates.length === 0}
 		<div class="empty">No pending candidates</div>
 	{/if}
 </main>
@@ -183,6 +243,7 @@
 	h1 {
 		font-size: 1.5rem;
 		margin: 0;
+		position: relative;
 	}
 
 	.subtitle {
@@ -191,33 +252,99 @@
 		font-size: 1rem;
 	}
 
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		flex-shrink: 0;
+	}
+
 	.back-link {
 		font-size: 0.85rem;
 		color: #555;
 		text-decoration: none;
 	}
 
-	.city-tabs, .source-tabs {
-		display: flex;
-		gap: 0.35rem;
-		flex-wrap: wrap;
-		margin-bottom: 0.5rem;
-	}
-
-	.city-tabs button, .source-tabs button {
+	.btn-pipeline {
 		padding: 0.35rem 0.75rem;
 		border: 1px solid #ccc;
-		border-radius: 999px;
+		border-radius: 8px;
 		background: white;
 		font-size: 0.8rem;
 		cursor: pointer;
 		color: #333;
+		white-space: nowrap;
 	}
 
-	.city-tabs button.active, .source-tabs button.active {
-		background: #111;
-		color: white;
-		border-color: #111;
+	.btn-pipeline:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+
+	.pipeline-log {
+		background: #1a1a1a;
+		color: #ccc;
+		font-family: 'SF Mono', Menlo, monospace;
+		font-size: 0.7rem;
+		line-height: 1.5;
+		padding: 0.75rem;
+		border-radius: 8px;
+		max-height: 200px;
+		overflow-y: auto;
+		margin-bottom: 0.75rem;
+	}
+
+	.log-spinner {
+		color: #666;
+	}
+
+	.city-title {
+		cursor: pointer;
+		display: inline-block;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		vertical-align: bottom;
+	}
+
+	.chevron {
+		font-size: 0.75em;
+		color: #888;
+		vertical-align: 0.1em;
+	}
+
+	.city-dropdown {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		background: white;
+		border: 1px solid #ddd;
+		border-radius: 8px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+		z-index: 30;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		min-width: 180px;
+	}
+
+	.city-dropdown button {
+		padding: 0.6rem 1rem;
+		border: none;
+		background: none;
+		text-align: left;
+		font-size: 1rem;
+		cursor: pointer;
+		color: #333;
+	}
+
+	.city-dropdown button:hover {
+		background: #f5f5f5;
+	}
+
+	.city-dropdown button.active {
+		font-weight: 600;
 	}
 
 	.count {
@@ -264,23 +391,9 @@
 
 	.card-name {
 		font-size: 1rem;
+		text-decoration: none;
+		color: inherit;
 	}
-
-	.source-badge {
-		font-size: 0.6rem;
-		padding: 0.15rem 0.4rem;
-		border-radius: 4px;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
-		background: #eee;
-		color: #555;
-	}
-
-	.source-badge[data-source="Eater"] { background: #fee; color: #c33; }
-	.source-badge[data-source="Infatuation"] { background: #eef; color: #33c; }
-	.source-badge[data-source="Google"] { background: #efe; color: #3a3; }
-	.source-badge[data-source="Yelp"] { background: #fef0e0; color: #c63; }
 
 	.price {
 		font-size: 0.75rem;

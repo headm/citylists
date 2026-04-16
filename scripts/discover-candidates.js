@@ -8,6 +8,8 @@ const PLACES_KEY = process.env.GOOGLE_PLACES_API_KEY;
 const CLAUDE_KEY = process.env.CLAUDE_API_KEY;
 const YELP_KEY = process.env.YELP_API_KEY;
 
+const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
 const airtableHeaders = { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
 const placesUrl = `https://api.airtable.com/v0/${BASE}/${encodeURIComponent(PLACES_TABLE)}`;
 const candidatesUrl = `https://api.airtable.com/v0/${BASE}/${encodeURIComponent(CANDIDATES_TABLE)}`;
@@ -27,39 +29,54 @@ const PRICE_LEVEL_MAP = {
 
 const CITY_CONFIGS = {
 	'San Francisco': {
-		eaterUrls: [
-			'https://sf.eater.com/maps/best-san-francisco-restaurants-38'
-		],
-		infatuationUrls: [
-			'https://www.theinfatuation.com/san-francisco/guides/the-infatuation-picks'
-		],
-		googleQueries: ['best restaurants San Francisco', 'top rated restaurants San Francisco', 'new restaurants San Francisco'],
+		eaterIndex: 'https://sf.eater.com/maps',
+		eaterLinkPattern: '/maps/',
+		eaterBase: 'https://sf.eater.com',
+		infatuationIndex: 'https://www.theinfatuation.com/san-francisco/guides',
+		infatuationLinkPattern: '/san-francisco/guides/',
+		infatuationBase: 'https://www.theinfatuation.com',
+		michelinUrl: 'https://guide.michelin.com/us/en/california/san-francisco/restaurants',
+		googleQueries: ['best restaurants San Francisco', 'top rated restaurants San Francisco', 'new restaurants San Francisco', 'trending restaurants San Francisco'],
 		yelpLocation: 'San Francisco, CA'
 	},
 	'New York': {
-		eaterUrls: [
-			'https://ny.eater.com/maps/best-new-york-restaurants-38'
-		],
-		infatuationUrls: [
-			'https://www.theinfatuation.com/new-york/guides/the-infatuation-picks'
-		],
-		googleQueries: ['best restaurants New York', 'top rated restaurants Manhattan'],
+		eaterIndex: 'https://ny.eater.com/maps',
+		eaterLinkPattern: '/maps/',
+		eaterBase: 'https://ny.eater.com',
+		infatuationIndex: 'https://www.theinfatuation.com/new-york/guides',
+		infatuationLinkPattern: '/new-york/guides/',
+		infatuationBase: 'https://www.theinfatuation.com',
+		michelinUrl: 'https://guide.michelin.com/us/en/new-york-state/new-york/restaurants',
+		googleQueries: ['best restaurants New York', 'top rated restaurants Manhattan', 'trending restaurants New York'],
 		yelpLocation: 'New York, NY'
 	},
 	'Tokyo': {
-		eaterUrls: [
-			'https://www.eater.com/maps/best-restaurants-tokyo'
+		eaterIndex: 'https://www.eater.com/international-maps',
+		eaterLinkPattern: '/maps/',
+		eaterBase: 'https://www.eater.com',
+		eaterCityFilter: 'tokyo',
+		tabelogUrls: [
+			'https://tabelog.com/en/tokyo/rstLst/?SrtT=rt&Srt=D&sort_mode=1',
+			'https://tabelog.com/en/tokyo/rstLst/?SrtT=inbound_access&Srt=D&sort_mode=1',
+			'https://tabelog.com/en/tokyo/rstLst/?SrtT=inbound_most_reserved&Srt=D&sort_mode=1',
 		],
-		infatuationUrls: [],
-		googleQueries: ['best restaurants Tokyo', 'top rated restaurants Tokyo'],
+		infatuationIndex: '',
+		infatuationLinkPattern: '',
+		infatuationBase: '',
+		michelinUrl: 'https://guide.michelin.com/jp/en/tokyo-region/tokyo/restaurants',
+		googleQueries: ['best restaurants Tokyo', 'top rated restaurants Tokyo', 'trending restaurants Tokyo'],
 		yelpLocation: 'Tokyo, Japan'
 	},
 	'Paris': {
-		eaterUrls: [
-			'https://www.eater.com/maps/best-restaurants-paris'
-		],
-		infatuationUrls: [],
-		googleQueries: ['best restaurants Paris', 'top rated restaurants Paris'],
+		eaterIndex: 'https://www.eater.com/international-maps',
+		eaterLinkPattern: '/maps/',
+		eaterBase: 'https://www.eater.com',
+		eaterCityFilter: 'paris',
+		infatuationIndex: '',
+		infatuationLinkPattern: '',
+		infatuationBase: '',
+		michelinUrl: 'https://guide.michelin.com/fr/en/ile-de-france/paris/restaurants',
+		googleQueries: ['best restaurants Paris', 'top rated restaurants Paris', 'trending restaurants Paris'],
 		yelpLocation: 'Paris, France'
 	}
 };
@@ -161,13 +178,88 @@ async function extractNamesWithClaude(html, sourceDescription) {
 	return toolBlock?.input?.names || [];
 }
 
+// ── Dynamic URL discovery ──
+
+async function discoverUrls(indexUrl, linkPattern, baseUrl, cityFilter) {
+	if (!indexUrl) return [];
+
+	console.log(`  Crawling index: ${indexUrl}`);
+	try {
+		const res = await fetch(indexUrl, { headers: { 'User-Agent': BROWSER_UA } });
+		if (!res.ok) { console.log(`  ✗ Index fetch failed (${res.status})`); return []; }
+		const html = await res.text();
+
+		const urls = new Set();
+		const regex = new RegExp(`href="(${linkPattern.replace('/', '\\/')}[^"]*)"`, 'g');
+		let match;
+		while ((match = regex.exec(html)) !== null) {
+			const href = match[1];
+			if (href === linkPattern || href === linkPattern.slice(0, -1)) continue;
+			if (cityFilter && !href.includes(cityFilter)) continue;
+			urls.add(href.startsWith('http') ? href : `${baseUrl}${href}`);
+		}
+		console.log(`  Discovered ${urls.size} list URLs from ${indexUrl}`);
+		return [...urls];
+	} catch (err) {
+		console.log(`  ✗ Index crawl error: ${err.message}`);
+		return [];
+	}
+}
+
 // ── Source scrapers ──
+
+async function scrapeTabelog(urls, pages = 3) {
+	const results = [];
+	for (const baseUrl of urls) {
+		console.log(`  Fetching Tabelog: ${baseUrl} (${pages} pages)`);
+		for (let pg = 1; pg <= pages; pg++) {
+			try {
+				const url = pg === 1 ? baseUrl : `${baseUrl}&PG=${pg}`;
+				const res = await fetch(url, { headers: { 'User-Agent': BROWSER_UA } });
+				if (!res.ok) { console.log(`  ✗ Tabelog fetch failed (${res.status})`); break; }
+				const html = await res.text();
+
+				const regex = /cpy-rst-name"[^>]*>([^<]+)</g;
+				let match;
+				let count = 0;
+				while ((match = regex.exec(html)) !== null) {
+					const name = match[1].trim();
+					if (name) { results.push({ name, source: 'Tabelog', sourceUrl: baseUrl }); count++; }
+				}
+				if (count === 0) break;
+				await delay(300);
+			} catch (err) {
+				console.log(`  ✗ Tabelog error: ${err.message}`);
+				break;
+			}
+		}
+	}
+	console.log(`  Found ${results.length} total names from Tabelog`);
+	return results;
+}
+
+async function scrapeMichelin(url) {
+	console.log(`  Fetching Michelin Guide: ${url}`);
+	try {
+		const res = await fetch(url, {
+			headers: { 'User-Agent': BROWSER_UA }
+		});
+		if (!res.ok) { console.log(`  ✗ Michelin fetch failed (${res.status})`); return []; }
+		const html = await res.text();
+		const names = await extractNamesWithClaude(html, 'Michelin Guide');
+		console.log(`  Found ${names.length} names from Michelin Guide`);
+		return names.map((name) => ({ name, source: 'Michelin', sourceUrl: url }));
+	} catch (err) {
+		console.log(`  ✗ Michelin error: ${err.message}`);
+		return [];
+	}
+}
 
 async function scrapeEater(url) {
 	console.log(`  Fetching Eater: ${url}`);
 	try {
 		const res = await fetch(url, {
-			headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CityLists/1.0)' }
+			headers: { 'User-Agent': BROWSER_UA }
 		});
 		if (!res.ok) { console.log(`  ✗ Eater fetch failed (${res.status})`); return []; }
 		const html = await res.text();
@@ -184,7 +276,7 @@ async function scrapeInfatuation(url) {
 	console.log(`  Fetching Infatuation: ${url}`);
 	try {
 		const res = await fetch(url, {
-			headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CityLists/1.0)' }
+			headers: { 'User-Agent': BROWSER_UA }
 		});
 		if (!res.ok) { console.log(`  ✗ Infatuation fetch failed (${res.status})`); return []; }
 		const html = await res.text();
@@ -218,7 +310,7 @@ async function discoverFromGoogle(queries, city) {
 			for (const place of data.places || []) {
 				const name = place.displayName?.text;
 				if (!name || seen.has(normalize(name))) continue;
-				if ((place.rating || 0) >= 4.5 && (place.userRatingCount || 0) >= 50) {
+				if ((place.rating || 0) >= 4.4 && (place.userRatingCount || 0) >= 25) {
 					seen.add(normalize(name));
 					results.push({ name, source: 'Google', sourceUrl: '' });
 				}
@@ -226,7 +318,7 @@ async function discoverFromGoogle(queries, city) {
 		} catch {}
 		await delay(100);
 	}
-	console.log(`  Found ${results.length} from Google (≥4.5★)`);
+	console.log(`  Found ${results.length} from Google (≥4.4★, ≥25 reviews)`);
 	return results;
 }
 
@@ -320,13 +412,31 @@ for (const city of citiesToProcess) {
 	// 2. Discover from sources
 	const discovered = [];
 
-	for (const url of config.eaterUrls) {
+	// Crawl Eater index for list URLs
+	const eaterUrls = await discoverUrls(config.eaterIndex, config.eaterLinkPattern, config.eaterBase, config.eaterCityFilter);
+	for (const url of eaterUrls) {
 		discovered.push(...await scrapeEater(url));
 		await delay(500);
 	}
 
-	for (const url of config.infatuationUrls) {
-		discovered.push(...await scrapeInfatuation(url));
+	// Crawl Infatuation index for guide URLs
+	if (config.infatuationIndex) {
+		const infatuationUrls = await discoverUrls(config.infatuationIndex, config.infatuationLinkPattern, config.infatuationBase);
+		for (const url of infatuationUrls) {
+			discovered.push(...await scrapeInfatuation(url));
+			await delay(500);
+		}
+	}
+
+	// Michelin Guide
+	if (config.michelinUrl) {
+		discovered.push(...await scrapeMichelin(config.michelinUrl));
+		await delay(500);
+	}
+
+	// Tabelog (Tokyo only)
+	if (config.tabelogUrls) {
+		discovered.push(...await scrapeTabelog(config.tabelogUrls));
 		await delay(500);
 	}
 
