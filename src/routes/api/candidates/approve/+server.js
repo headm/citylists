@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { fetchCandidateById, updateCandidate, createPlace, fetchPlaces, fetchFieldOptions, fetchNeighborhoodsForCity } from '$lib/server/airtable.js';
+import { fetchCandidateById, updateCandidate, createPlace, fetchPlaces, fetchFieldOptions, fetchNeighborhoodsForCity } from '$lib/server/supabase.js';
 import { enrichPlace } from '$lib/server/enrich.js';
 
 function normalize(s) {

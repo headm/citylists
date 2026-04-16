@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { updateCandidate } from '$lib/server/airtable.js';
+import { updateCandidate } from '$lib/server/supabase.js';
 
 export async function POST({ request }) {
 	const { id } = await request.json();

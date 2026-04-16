@@ -1,21 +1,20 @@
 import 'dotenv/config';
+import { createClient } from '@supabase/supabase-js';
 
-const TOKEN = process.env.AIRTABLE_TOKEN;
-const BASE = process.env.AIRTABLE_BASE_ID;
-const PLACES_TABLE = process.env.AIRTABLE_TABLE_NAME || 'Places';
-const CANDIDATES_TABLE = process.env.AIRTABLE_CANDIDATES_TABLE || 'Candidates';
+const supabase = createClient(process.env.PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
+
 const PLACES_KEY = process.env.GOOGLE_PLACES_API_KEY;
 const CLAUDE_KEY = process.env.CLAUDE_API_KEY;
 const YELP_KEY = process.env.YELP_API_KEY;
 
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-const airtableHeaders = { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
-const placesUrl = `https://api.airtable.com/v0/${BASE}/${encodeURIComponent(PLACES_TABLE)}`;
-const candidatesUrl = `https://api.airtable.com/v0/${BASE}/${encodeURIComponent(CANDIDATES_TABLE)}`;
-
 if (!PLACES_KEY || !CLAUDE_KEY) {
 	console.error('GOOGLE_PLACES_API_KEY and CLAUDE_API_KEY must be set in .env');
+	process.exit(1);
+}
+if (!process.env.PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
+	console.error('PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY must be set in .env');
 	process.exit(1);
 }
 
@@ -91,46 +90,41 @@ async function delay(ms) {
 	return new Promise((r) => setTimeout(r, ms));
 }
 
-// ── Airtable helpers ──
+// ── Supabase helpers ──
 
-async function fetchNames(baseUrl, city) {
-	const names = [];
-	let offset;
-	const filter = encodeURIComponent(`{City} = "${city}"`);
-	do {
-		const url = `${baseUrl}?filterByFormula=${filter}&fields%5B%5D=Name&pageSize=100${offset ? '&offset=' + offset : ''}`;
-		const res = await fetch(url, { headers: airtableHeaders });
-		const data = await res.json();
-		if (!data.records) {
-			if (data.error) console.log(`  ⚠ ${data.error.message}`);
-			break;
-		}
-		for (const r of data.records) {
-			if (r.fields.Name) names.push(r.fields.Name);
-		}
-		offset = data.offset;
-	} while (offset);
-	return names;
+async function fetchNames(table, city) {
+	const { data, error } = await supabase.from(table).select('name').eq('city', city);
+	if (error) {
+		console.log(`  ⚠ ${error.message}`);
+		return [];
+	}
+	return data.map((r) => r.name).filter(Boolean);
 }
 
 async function batchCreateCandidates(records) {
-	for (let i = 0; i < records.length; i += 10) {
-		const batch = records.slice(i, i + 10);
-		const res = await fetch(candidatesUrl, {
-			method: 'POST',
-			headers: airtableHeaders,
-			body: JSON.stringify({
-				records: batch.map((fields) => ({ fields })),
-				typecast: true
-			})
-		});
-		const data = await res.json();
-		if (data.error) {
-			console.error(`  ✗ Airtable error: ${data.error.message}`);
+	const rows = records.map((r) => ({
+		name: r.Name,
+		city: r.City,
+		source: r.Source || '',
+		source_url: r.SourceURL || '',
+		status: r.Status || 'Pending',
+		address: r.Address || '',
+		lat: r.Lat || null,
+		lng: r.Lng || null,
+		photo: r.Photo || '',
+		price_level: r.PriceLevel || '',
+		hours: r.Hours || ''
+	}));
+
+	// Supabase can handle bulk inserts, but let's chunk at 100 to be safe
+	for (let i = 0; i < rows.length; i += 100) {
+		const batch = rows.slice(i, i + 100);
+		const { data, error } = await supabase.from('candidates').insert(batch).select();
+		if (error) {
+			console.error(`  ✗ Supabase error: ${error.message}`);
 		} else {
-			console.log(`  Created ${data.records.length} candidates`);
+			console.log(`  Created ${data.length} candidates`);
 		}
-		if (i + 10 < records.length) await delay(250);
 	}
 }
 
@@ -400,8 +394,8 @@ for (const city of citiesToProcess) {
 	// 1. Build dedup set
 	console.log('Fetching existing names for deduplication...');
 	const [placeNames, candidateNames] = await Promise.all([
-		fetchNames(placesUrl, city),
-		fetchNames(candidatesUrl, city)
+		fetchNames('places', city),
+		fetchNames('candidates', city)
 	]);
 	const existingNames = new Set([
 		...placeNames.map(normalize),
@@ -478,7 +472,7 @@ for (const city of citiesToProcess) {
 	}
 
 	// 5. Batch create
-	console.log(`Creating ${records.length} candidates in Airtable...`);
+	console.log(`Creating ${records.length} candidates in Supabase...`);
 	await batchCreateCandidates(records);
 }
 

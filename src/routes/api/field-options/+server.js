@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { fetchFieldOptions } from '$lib/server/airtable.js';
+import { fetchFieldOptions } from '$lib/server/supabase.js';
 
 export async function GET() {
 	try {

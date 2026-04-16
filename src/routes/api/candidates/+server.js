@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { fetchCandidates } from '$lib/server/airtable.js';
+import { fetchCandidates } from '$lib/server/supabase.js';
 
 export async function GET({ url }) {
 	const city = url.searchParams.get('city') || undefined;

@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { fetchFieldOptions, fetchNeighborhoodsForCity } from '$lib/server/airtable.js';
+import { fetchFieldOptions, fetchNeighborhoodsForCity } from '$lib/server/supabase.js';
 import { enrichPlace } from '$lib/server/enrich.js';
 
 export async function POST({ request }) {
