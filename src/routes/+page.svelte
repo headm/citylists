@@ -5,7 +5,7 @@
 	import { env } from '$env/dynamic/public';
 	import MapView from '$lib/components/MapView.svelte';
 
-	const cities = ['San Francisco', 'New York', 'Paris', 'Tokyo'];
+	const cities = ['San Francisco', 'New York', 'Tokyo'];
 
 	let showAddForm = $state(false);
 	let showFilterModal = $state(false);
