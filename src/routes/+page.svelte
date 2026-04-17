@@ -10,6 +10,7 @@
 	let showAddForm = $state(false);
 	let showFilterModal = $state(false);
 	let viewMode = $state('list');
+	let listStyle = $state('compact');
 	let showCityPicker = $state(false);
 	let showGroupPicker = $state(false);
 	let controlsVisible = $state(true);
@@ -415,17 +416,26 @@ let enriched = $state(null);
 
 				{#if viewMode === 'list'}
 					<div class="group-by-select">
-						<span class="label">Group by</span>
-						<span class="group-picker" onclick={() => { showGroupPicker = !showGroupPicker; }}>
-							{groupBy} <span class="chevron group-chevron">&#9662;</span>
-							{#if showGroupPicker}
-								<div class="group-dropdown">
-									{#each currentGroupOptions as field}
-										<button class:active={groupBy === field} onclick={(e) => { e.stopPropagation(); groupBy = field; showGroupPicker = false; }}>{field}</button>
-									{/each}
-								</div>
+						<div class="group-by-left">
+							<span class="label">Group by</span>
+							<span class="group-picker" onclick={() => { showGroupPicker = !showGroupPicker; }}>
+								{groupBy} <span class="chevron group-chevron">&#9662;</span>
+								{#if showGroupPicker}
+									<div class="group-dropdown">
+										{#each currentGroupOptions as field}
+											<button class:active={groupBy === field} onclick={(e) => { e.stopPropagation(); groupBy = field; showGroupPicker = false; }}>{field}</button>
+										{/each}
+									</div>
+								{/if}
+							</span>
+						</div>
+						<button class="list-style-toggle" onclick={() => { listStyle = listStyle === 'compact' ? 'cards' : 'compact'; }}>
+							{#if listStyle === 'compact'}
+								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+							{:else}
+								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
 							{/if}
-						</span>
+						</button>
 					</div>
 				{/if}
 			</div>
@@ -433,34 +443,97 @@ let enriched = $state(null);
 	</div>
 
 	{#snippet placeList(items)}
-		<ul class="compact-list">
+		{#if listStyle === 'cards'}
+			{@render placeCards(items)}
+		{:else}
+			<ul class="compact-list">
+				{#each items as place}
+					<li>
+						<a class="place-name" href={`https://www.google.com/search?q=${encodeURIComponent(place.Name + ' ' + $selectedCity)}`} target="_blank" rel="noopener"><strong>{place.Name}</strong></a>{stars(place.Stars)}
+						{#if place.Description}
+							<span class="desc"> — {place.Description}</span>
+						{/if}
+						{#each tags(place) as tag}
+							<span class="tag-wrap">
+								<span
+									class="tag-pill"
+									onclick={() => toggleTagEdit(place.id, tag.field, tag.index)}
+								>{tag.value}</span>
+								{#if editingTag && editingTag.placeId === place.id && editingTag.field === tag.field && editingTag.index === tag.index}
+									<div class="tag-dropdown">
+										{#each getFilterOptions(tag.field) as opt}
+											<button
+												class:active={opt === tag.value}
+												onclick={() => { updateTag(place, tag.field, tag.index, opt); editingTag = null; }}
+											>{opt}</button>
+										{/each}
+									</div>
+								{/if}
+							</span>
+						{/each}
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	{/snippet}
+
+	{#snippet placeCards(items)}
+		<div class="card-list">
 			{#each items as place}
-				<li>
-					<a class="place-name" href={`https://www.google.com/search?q=${encodeURIComponent(place.Name + ' ' + $selectedCity)}`} target="_blank" rel="noopener"><strong>{place.Name}</strong></a>{stars(place.Stars)}
-					{#if place.Description}
-						<span class="desc"> — {place.Description}</span>
-					{/if}
-					{#each tags(place) as tag}
-						<span class="tag-wrap">
-							<span
-								class="tag-pill"
-								onclick={() => toggleTagEdit(place.id, tag.field, tag.index)}
-							>{tag.value}</span>
-							{#if editingTag && editingTag.placeId === place.id && editingTag.field === tag.field && editingTag.index === tag.index}
-								<div class="tag-dropdown">
-									{#each getFilterOptions(tag.field) as opt}
-										<button
-											class:active={opt === tag.value}
-											onclick={() => { updateTag(place, tag.field, tag.index, opt); editingTag = null; }}
-										>{opt}</button>
-									{/each}
-								</div>
+				<div class="place-card">
+					<div class="card-photo">
+						{#if place.Photo}
+							<img
+								src={`/api/photo?ref=${encodeURIComponent(place.Photo)}&maxWidthPx=120&maxHeightPx=120`}
+								alt={place.Name}
+								loading="lazy"
+							/>
+						{/if}
+					</div>
+					<div class="card-content">
+						<div class="card-header">
+							<a class="place-name" href={`https://www.google.com/search?q=${encodeURIComponent(place.Name + ' ' + $selectedCity)}`} target="_blank" rel="noopener"><strong>{place.Name}</strong></a>{stars(place.Stars)}
+							{#if place.PriceLevel}
+								<span class="card-price">{place.PriceLevel}</span>
 							{/if}
-						</span>
-					{/each}
-				</li>
+						</div>
+						{#if place.GoogleRating || place.TabelogRating}
+							<div class="card-ratings">
+								{#if place.GoogleRating}
+									<span class="card-rating">{place.GoogleRating}<span class="rating-star">&#9733;</span></span>
+								{/if}
+								{#if place.TabelogRating}
+									<span class="card-rating tabelog">T {place.TabelogRating}</span>
+								{/if}
+							</div>
+						{/if}
+						{#if place.Description}
+							<p class="card-desc">{place.Description}</p>
+						{/if}
+						<div class="card-tags">
+							{#each tags(place) as tag}
+								<span class="tag-wrap">
+									<span
+										class="tag-pill"
+										onclick={() => toggleTagEdit(place.id, tag.field, tag.index)}
+									>{tag.value}</span>
+									{#if editingTag && editingTag.placeId === place.id && editingTag.field === tag.field && editingTag.index === tag.index}
+										<div class="tag-dropdown">
+											{#each getFilterOptions(tag.field) as opt}
+												<button
+													class:active={opt === tag.value}
+													onclick={() => { updateTag(place, tag.field, tag.index, opt); editingTag = null; }}
+												>{opt}</button>
+											{/each}
+										</div>
+									{/if}
+								</span>
+							{/each}
+						</div>
+					</div>
+				</div>
 			{/each}
-		</ul>
+		</div>
 	{/snippet}
 
 	{#if viewMode === 'map'}
@@ -968,8 +1041,25 @@ let enriched = $state(null);
 	.group-by-select {
 		display: flex;
 		align-items: baseline;
-		gap: 0.25rem;
+		justify-content: space-between;
 		margin-top: 0.75rem;
+	}
+
+	.group-by-left {
+		display: flex;
+		align-items: baseline;
+		gap: 0.25rem;
+	}
+
+	.list-style-toggle {
+		background: none;
+		border: 1px solid #ccc;
+		border-radius: 4px;
+		padding: 0.25rem 0.35rem;
+		cursor: pointer;
+		color: #666;
+		display: flex;
+		align-items: center;
 	}
 
 	.group-chevron {
@@ -1190,5 +1280,98 @@ let enriched = $state(null);
 
 	.tag-dropdown button.active {
 		font-weight: 600;
+	}
+
+	/* ── Card view ── */
+
+	.card-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.25rem 0;
+	}
+
+	.place-card {
+		display: flex;
+		gap: 0.6rem;
+		padding: 0.5rem;
+		border: 1px solid #e8e8e8;
+		border-radius: 8px;
+		background: white;
+	}
+
+	.card-photo {
+		width: 60px;
+		height: 60px;
+		flex-shrink: 0;
+		border-radius: 6px;
+		overflow: hidden;
+		background: #eee;
+	}
+
+	.card-photo img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+
+	.card-content {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.card-header {
+		display: flex;
+		align-items: baseline;
+		gap: 0.25rem;
+	}
+
+	.card-header .place-name {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.card-price {
+		font-size: 0.75rem;
+		color: #888;
+		flex-shrink: 0;
+	}
+
+	.card-ratings {
+		display: flex;
+		gap: 0.5rem;
+		margin-top: 0.1rem;
+	}
+
+	.card-rating {
+		font-size: 0.7rem;
+		color: #666;
+	}
+
+	.rating-star {
+		color: #f5a623;
+		margin-left: 1px;
+	}
+
+	.card-rating.tabelog {
+		color: #888;
+	}
+
+	.card-desc {
+		font-size: 0.75rem;
+		color: #555;
+		margin: 0.15rem 0 0.2rem;
+		line-height: 1.3;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+
+	.card-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.2rem;
 	}
 </style>

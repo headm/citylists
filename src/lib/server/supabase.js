@@ -24,7 +24,9 @@ const toDb = (fields) => ({
 	lng: fields.Lng ?? null,
 	photo: fields.Photo ?? '',
 	price_level: fields.PriceLevel ?? '',
-	hours: fields.Hours ?? ''
+	hours: fields.Hours ?? '',
+	google_rating: fields.GoogleRating ?? null,
+	tabelog_rating: fields.TabelogRating ?? null
 });
 
 const fromDb = (row) => ({
@@ -44,7 +46,9 @@ const fromDb = (row) => ({
 	Lng: row.lng,
 	Photo: row.photo || '',
 	PriceLevel: row.price_level || '',
-	Hours: row.hours || ''
+	Hours: row.hours || '',
+	GoogleRating: row.google_rating || null,
+	TabelogRating: row.tabelog_rating || null
 });
 
 const candidateToDb = (fields) => ({
@@ -118,6 +122,8 @@ export async function updatePlace(id, fields) {
 	if ('Photo' in fields) updates.photo = fields.Photo;
 	if ('PriceLevel' in fields) updates.price_level = fields.PriceLevel;
 	if ('Hours' in fields) updates.hours = fields.Hours;
+	if ('GoogleRating' in fields) updates.google_rating = fields.GoogleRating;
+	if ('TabelogRating' in fields) updates.tabelog_rating = fields.TabelogRating;
 
 	const { data, error } = await supabase.from('places').update(updates).eq('id', id).select().single();
 	if (error) throw new Error(`Supabase update failed: ${error.message}`);
