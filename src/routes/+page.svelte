@@ -1308,7 +1308,7 @@ let enriched = $state(null);
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-		padding: 0.25rem 0;
+		padding: 0.25rem 0 0.5rem;
 	}
 
 	.place-card {
@@ -1396,15 +1396,16 @@ let enriched = $state(null);
 
 	.pin-btn {
 		position: absolute;
-		top: 0.35rem;
-		right: 0.35rem;
+		top: 0.2rem;
+		right: 0.2rem;
 		background: none;
 		border: none;
 		cursor: pointer;
 		color: #ccc;
-		padding: 0.15rem;
+		padding: 0.65rem;
 		line-height: 1;
 		border-radius: 3px;
+		-webkit-tap-highlight-color: transparent;
 	}
 
 	.pin-btn:hover {
