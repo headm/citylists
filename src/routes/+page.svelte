@@ -377,6 +377,22 @@ let enriched = $state(null);
 			}
 		}
 	}
+
+	async function togglePin(place) {
+		const newPinned = !place.Pinned;
+		const res = await fetch('/api/places', {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ id: place.id, fields: { Pinned: newPinned } })
+		});
+		if (res.ok) {
+			const idx = $places.findIndex((p) => p.id === place.id);
+			if (idx !== -1) {
+				$places[idx] = { ...$places[idx], Pinned: newPinned };
+				$places = [...$places];
+			}
+		}
+	}
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -448,7 +464,7 @@ let enriched = $state(null);
 		{:else}
 			<ul class="compact-list">
 				{#each items as place}
-					<li>
+					<li class:pinned={place.Pinned}>
 						<a class="place-name" href={`https://www.google.com/search?q=${encodeURIComponent(place.Name + ' ' + $selectedCity)}`} target="_blank" rel="noopener"><strong>{place.Name}</strong></a>{stars(place.Stars)}
 						{#if place.Description}
 							<span class="desc"> — {place.Description}</span>
@@ -480,7 +496,10 @@ let enriched = $state(null);
 	{#snippet placeCards(items)}
 		<div class="card-list">
 			{#each items as place}
-				<div class="place-card">
+				<div class="place-card" class:pinned={place.Pinned}>
+					<button class="pin-btn" class:pinned={place.Pinned} onclick={() => togglePin(place)} title={place.Pinned ? 'Unpin' : 'Pin'}>
+						<svg width="12" height="12" viewBox="0 0 24 24" fill={place.Pinned ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>
+					</button>
 					<div class="card-photo">
 						{#if place.Photo}
 							<img
@@ -493,17 +512,17 @@ let enriched = $state(null);
 					<div class="card-content">
 						<div class="card-header">
 							<a class="place-name" href={`https://www.google.com/search?q=${encodeURIComponent(place.Name + ' ' + $selectedCity)}`} target="_blank" rel="noopener"><strong>{place.Name}</strong></a>{stars(place.Stars)}
-							{#if place.PriceLevel}
-								<span class="card-price">{place.PriceLevel}</span>
-							{/if}
 						</div>
-						{#if place.GoogleRating || place.TabelogRating}
+						{#if place.GoogleRating || place.TabelogRating || place.PriceLevel}
 							<div class="card-ratings">
 								{#if place.GoogleRating}
 									<span class="card-rating">{place.GoogleRating}<span class="rating-star">&#9733;</span></span>
 								{/if}
 								{#if place.TabelogRating}
 									<span class="card-rating tabelog">T {place.TabelogRating}</span>
+								{/if}
+								{#if place.PriceLevel}
+									<span class="card-price">{place.PriceLevel}</span>
 								{/if}
 							</div>
 						{/if}
@@ -542,6 +561,7 @@ let enriched = $state(null);
 				places={filteredPlaces}
 				accessToken={env.PUBLIC_MAPBOX_TOKEN}
 				city={$selectedCity}
+				onTogglePin={togglePin}
 			/>
 		{/if}
 	{:else}
@@ -1292,6 +1312,7 @@ let enriched = $state(null);
 	}
 
 	.place-card {
+		position: relative;
 		display: flex;
 		gap: 0.6rem;
 		padding: 0.5rem;
@@ -1324,18 +1345,13 @@ let enriched = $state(null);
 	.card-header {
 		display: flex;
 		align-items: baseline;
-		gap: 0.25rem;
-	}
-
-	.card-header .place-name {
-		flex: 1;
-		min-width: 0;
+		flex-wrap: wrap;
+		gap: 0.15rem;
 	}
 
 	.card-price {
-		font-size: 0.75rem;
+		font-size: 0.7rem;
 		color: #888;
-		flex-shrink: 0;
 	}
 
 	.card-ratings {
@@ -1373,5 +1389,38 @@ let enriched = $state(null);
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.2rem;
+		margin-left: -0.35rem;
+	}
+
+	/* ── Pinned states ── */
+
+	.pin-btn {
+		position: absolute;
+		top: 0.35rem;
+		right: 0.35rem;
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: #ccc;
+		padding: 0.15rem;
+		line-height: 1;
+		border-radius: 3px;
+	}
+
+	.pin-btn:hover {
+		color: #999;
+	}
+
+	.pin-btn.pinned {
+		color: #d4a017;
+	}
+
+	.place-card.pinned {
+		background: #fffbf0;
+		border-color: #f0e6c8;
+	}
+
+	.compact-list li.pinned .place-name strong {
+		color: #b8860b;
 	}
 </style>

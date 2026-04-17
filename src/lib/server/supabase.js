@@ -26,7 +26,8 @@ const toDb = (fields) => ({
 	price_level: fields.PriceLevel ?? '',
 	hours: fields.Hours ?? '',
 	google_rating: fields.GoogleRating ?? null,
-	tabelog_rating: fields.TabelogRating ?? null
+	tabelog_rating: fields.TabelogRating ?? null,
+	pinned: fields.Pinned ?? false
 });
 
 const fromDb = (row) => ({
@@ -48,7 +49,8 @@ const fromDb = (row) => ({
 	PriceLevel: row.price_level || '',
 	Hours: row.hours || '',
 	GoogleRating: row.google_rating || null,
-	TabelogRating: row.tabelog_rating || null
+	TabelogRating: row.tabelog_rating || null,
+	Pinned: row.pinned || false
 });
 
 const candidateToDb = (fields) => ({
@@ -124,6 +126,7 @@ export async function updatePlace(id, fields) {
 	if ('Hours' in fields) updates.hours = fields.Hours;
 	if ('GoogleRating' in fields) updates.google_rating = fields.GoogleRating;
 	if ('TabelogRating' in fields) updates.tabelog_rating = fields.TabelogRating;
+	if ('Pinned' in fields) updates.pinned = fields.Pinned;
 
 	const { data, error } = await supabase.from('places').update(updates).eq('id', id).select().single();
 	if (error) throw new Error(`Supabase update failed: ${error.message}`);

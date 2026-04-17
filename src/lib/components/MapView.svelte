@@ -5,7 +5,7 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
 
-	let { places = [], accessToken = '', city = 'San Francisco' } = $props();
+	let { places = [], accessToken = '', city = 'San Francisco', onTogglePin = null } = $props();
 
 	const cityCenters = {
 		'San Francisco': { lng: -122.44, lat: 37.76, zoom: 12 },
@@ -29,6 +29,14 @@
 	let userLng = $state(null);
 	let watchId = null;
 	let hasFlownToUser = false;
+
+	// Global handler for pin toggle from popup HTML buttons
+	if (typeof window !== 'undefined') {
+		window.__mapPinToggle = (placeId) => {
+			const place = places.find((p) => p.id === placeId);
+			if (place && onTogglePin) onTogglePin(place);
+		};
+	}
 
 	function isNearCity(lat, lng, cityName) {
 		const center = cityCenters[cityName] || cityCenters['San Francisco'];
@@ -86,7 +94,9 @@
 							category: p.Category || '',
 							type: p.Type || '',
 							priceLevel: p.PriceLevel || '',
-							photoReference: p.Photo || ''
+							photoReference: p.Photo || '',
+							googleRating: p.GoogleRating || null,
+							pinned: p.Pinned || false
 						},
 						geometry: {
 							type: 'Point',
@@ -112,9 +122,16 @@
 		// Name + stars
 		html += `<strong style="font-size: 0.9rem;">${props.name}${stars}</strong>`;
 
-		// Price level
-		if (props.priceLevel) {
-			html += ` <span style="font-size: 0.75rem; color: #888;">${props.priceLevel}</span>`;
+		// Rating & price
+		if (props.googleRating || props.priceLevel) {
+			html += '<div style="font-size: 0.7rem; color: #666; margin-top: 0.1rem;">';
+			if (props.googleRating) {
+				html += `${props.googleRating}<span style="color: #f5a623; margin-left: 1px;">&#9733;</span>`;
+			}
+			if (props.priceLevel) {
+				html += `${props.googleRating ? ' &nbsp;' : ''}<span style="color: #888;">${props.priceLevel}</span>`;
+			}
+			html += '</div>';
 		}
 
 		// Tags row
@@ -132,9 +149,13 @@
 			html += `<p style="margin: 0.25rem 0 0.3rem; font-size: 0.75rem; color: #555;">${props.description}</p>`;
 		}
 
-		// Google link
+		// Footer: Google link + pin toggle
+		html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.2rem;">';
 		html += `<a href="${googleUrl}" target="_blank" rel="noopener" style="font-size: 0.7rem; color: #0066cc; text-decoration: none;">Google</a>`;
-		html += '</div>';
+		const pinColor = props.pinned === true || props.pinned === 'true' ? '#d4a017' : '#ccc';
+		const pinFill = props.pinned === true || props.pinned === 'true' ? 'currentColor' : 'none';
+		html += `<button onclick="window.__mapPinToggle('${props.id}')" style="background:none; border:none; cursor:pointer; color:${pinColor}; padding:0.15rem; line-height:1;"><svg width="14" height="14" viewBox="0 0 24 24" fill="${pinFill}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button>`;
+		html += '</div></div>';
 		return html;
 	}
 
@@ -198,10 +219,13 @@
 				source: 'places',
 				paint: {
 					'circle-color': [
-						'match', ['get', 'mode'],
-						'Food & Drink', '#E07A5F',
-						'Things to Do', '#457B9D',
-						'#111'
+						'case',
+						['get', 'pinned'], '#d4a017',
+						['match', ['get', 'mode'],
+							'Food & Drink', '#E07A5F',
+							'Things to Do', '#457B9D',
+							'#111'
+						]
 					],
 					'circle-radius': [
 						'interpolate', ['linear'], ['zoom'],

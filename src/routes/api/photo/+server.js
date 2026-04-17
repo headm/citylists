@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/private';
 
 export async function GET({ url }) {
-	const ref = url.searchParams.get('ref');
+	let ref = url.searchParams.get('ref');
 	if (!ref) {
 		return new Response('Missing ref parameter', { status: 400 });
 	}
@@ -10,7 +10,23 @@ export async function GET({ url }) {
 	const maxWidthPx = url.searchParams.get('maxWidthPx') || '400';
 
 	try {
-		const mediaUrl = `https://places.googleapis.com/v1/${ref}/media?key=${env.GOOGLE_PLACES_API_KEY}&maxHeightPx=${maxHeightPx}&maxWidthPx=${maxWidthPx}&skipHttpRedirect=true`;
+		let mediaUrl;
+		if (ref.startsWith('https://')) {
+			// Full URL (NY-style) — already a direct media URL, just fetch it
+			const imageRes = await fetch(ref);
+			if (!imageRes.ok) {
+				return new Response('Failed to fetch photo', { status: 502 });
+			}
+			return new Response(imageRes.body, {
+				headers: {
+					'Content-Type': imageRes.headers.get('Content-Type') || 'image/jpeg',
+					'Cache-Control': 'public, max-age=86400'
+				}
+			});
+		}
+
+		// Short reference (SF/Tokyo-style) — resolve via metadata endpoint
+		mediaUrl = `https://places.googleapis.com/v1/${ref}/media?key=${env.GOOGLE_PLACES_API_KEY}&maxHeightPx=${maxHeightPx}&maxWidthPx=${maxWidthPx}&skipHttpRedirect=true`;
 		const metaRes = await fetch(mediaUrl);
 		if (!metaRes.ok) {
 			return new Response('Failed to fetch photo metadata', { status: 502 });

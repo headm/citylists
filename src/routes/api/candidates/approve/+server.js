@@ -50,7 +50,8 @@ export async function POST({ request }) {
 			Photo: enriched.photoReference || candidate.Photo || '',
 			PriceLevel: enriched.priceLevel || candidate.PriceLevel || '',
 			Hours: enriched.hours || candidate.Hours || '',
-			URL: enriched.url || ''
+			URL: enriched.url || '',
+			GoogleRating: enriched.googleRating || null
 		};
 
 		// Create in Places table

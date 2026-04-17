@@ -45,7 +45,8 @@ async function searchPlacesAPI(name, city) {
 		'places.photos',
 		'places.editorialSummary',
 		'places.googleMapsUri',
-		'places.websiteUri'
+		'places.websiteUri',
+		'places.rating'
 	].join(',');
 
 	try {
@@ -75,7 +76,8 @@ async function searchPlacesAPI(name, city) {
 			photoReference: place.photos?.[0]?.name || null,
 			editorialSummary: place.editorialSummary?.text || null,
 			websiteUrl: place.websiteUri || null,
-			googleMapsUrl: place.googleMapsUri || null
+			googleMapsUrl: place.googleMapsUri || null,
+			googleRating: place.rating || null
 		};
 	} catch {
 		return null;
@@ -218,6 +220,7 @@ ${contextBlock}`;
 		result.photoReference = placesData.photoReference || null;
 		result.hours = placesData.hours || null;
 		result.priceLevel = placesData.priceLevel || null;
+		result.googleRating = placesData.googleRating || null;
 		result.url = placesData.websiteUrl || placesData.googleMapsUrl || '';
 	}
 
