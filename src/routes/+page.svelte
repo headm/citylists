@@ -10,7 +10,7 @@
 	let showAddForm = $state(false);
 	let showFilterModal = $state(false);
 	let viewMode = $state('list');
-	let listStyle = $state('compact');
+	let listStyle = $state('cards');
 	let showCityPicker = $state(false);
 	let showGroupPicker = $state(false);
 	let controlsVisible = $state(true);
