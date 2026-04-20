@@ -162,7 +162,8 @@ let enriched = $state(null);
 				Lng: enriched.lng || null,
 				Photo: enriched.photoReference || '',
 				PriceLevel: enriched.priceLevel || '',
-				Hours: enriched.hours || ''
+				Hours: enriched.hours || '',
+				GoogleRating: enriched.googleRating ?? null
 			};
 			const res = await fetch('/api/places', {
 				method: 'POST',
