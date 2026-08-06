@@ -47,7 +47,7 @@ export async function POST({ request }) {
 			Address: enriched.address || candidate.Address || '',
 			Lat: enriched.lat || candidate.Lat || null,
 			Lng: enriched.lng || candidate.Lng || null,
-			Photo: enriched.photoReference || candidate.Photo || '',
+			Photo: enriched.placeId || candidate.Photo || '',
 			PriceLevel: enriched.priceLevel || candidate.PriceLevel || '',
 			Hours: enriched.hours || candidate.Hours || '',
 			URL: enriched.url || '',

@@ -34,6 +34,7 @@ async function fetchNYCRecords() {
 // --- Google Places search ---
 async function searchGooglePlaces(name, city) {
 	const fieldMask = [
+		'places.id',
 		'places.displayName',
 		'places.formattedAddress',
 		'places.location',
@@ -65,16 +66,14 @@ async function searchGooglePlaces(name, city) {
 		lng: place.location?.longitude || null,
 		priceLevel: PRICE_LEVEL_MAP[place.priceLevel] || null,
 		hours: place.currentOpeningHours?.weekdayDescriptions?.join('\n') || null,
-		photoReference: place.photos?.[0]?.name || null,
+		placeId: place.id || null,
 		url: place.websiteUri || place.googleMapsUri || null
 	};
 }
 
-// --- Get photo URL from reference ---
-function getPhotoUrl(photoReference) {
-	if (!photoReference) return null;
-	return `https://places.googleapis.com/v1/${photoReference}/media?maxWidthPx=800&key=${GOOGLE_PLACES_API_KEY}`;
-}
+// Photo storage is just the durable place ID now. Never build a media URL with the
+// API key in it — that key used to end up in the database and get served to clients.
+// Image bytes are cached by scripts/backfill-photos.js; see src/lib/server/photos.js.
 
 // --- Geocode via Mapbox fallback ---
 async function geocode(name, address) {
@@ -160,7 +159,7 @@ for (let i = 0; i < needsUpdate.length; i++) {
 			}
 			if (gp.priceLevel && !record.fields.PriceLevel) fields.PriceLevel = gp.priceLevel;
 			if (gp.hours && !record.fields.Hours) fields.Hours = gp.hours;
-			if (gp.photoReference && !record.fields.Photo) fields.Photo = getPhotoUrl(gp.photoReference);
+			if (gp.placeId && !record.fields.Photo) fields.Photo = gp.placeId;
 			if (gp.url && !record.fields.URL) fields.URL = gp.url;
 		}
 

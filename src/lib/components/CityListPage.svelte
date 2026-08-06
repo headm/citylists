@@ -160,7 +160,7 @@ let enriched = $state(null);
 				Address: enriched.address || '',
 				Lat: enriched.lat || null,
 				Lng: enriched.lng || null,
-				Photo: enriched.photoReference || '',
+				Photo: enriched.placeId || '',
 				PriceLevel: enriched.priceLevel || '',
 				Hours: enriched.hours || '',
 				GoogleRating: enriched.googleRating ?? null
@@ -633,9 +633,9 @@ let enriched = $state(null);
 
 				{#if enriched}
 					<div class="fields">
-						{#if enriched.photoReference}
+						{#if enriched.placeId}
 							<img
-								src={`/api/photo?ref=${encodeURIComponent(enriched.photoReference)}&maxWidthPx=560`}
+								src={`/api/photo?ref=${encodeURIComponent(enriched.placeId)}&maxWidthPx=560`}
 								alt={addName}
 								class="enriched-photo"
 							/>

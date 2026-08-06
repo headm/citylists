@@ -21,6 +21,7 @@ const PRICE_LEVEL_MAP = {
 };
 
 const FIELD_MASK = [
+	'places.id',
 	'places.displayName',
 	'places.formattedAddress',
 	'places.location',
@@ -82,7 +83,7 @@ async function searchPlacesRaw(query) {
 			lng: place.location?.longitude || null,
 			priceLevel: PRICE_LEVEL_MAP[place.priceLevel] || null,
 			hours: place.currentOpeningHours?.weekdayDescriptions?.join('\n') || null,
-			photoReference: place.photos?.[0]?.name || null
+			placeId: place.id || null
 		};
 	} catch {
 		return null;
@@ -146,7 +147,7 @@ for (let i = 0; i < records.length; i += 10) {
 				Lat: coords.lat,
 				Lng: coords.lng,
 				Address: result.address || '',
-				Photo: result.photoReference || '',
+				Photo: result.placeId || '',
 				PriceLevel: result.priceLevel || '',
 				Hours: result.hours || ''
 			};

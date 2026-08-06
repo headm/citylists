@@ -94,7 +94,7 @@
 							category: p.Category || '',
 							type: p.Type || '',
 							priceLevel: p.PriceLevel || '',
-							photoReference: p.Photo || '',
+							placeId: p.Photo || '',
 							googleRating: p.GoogleRating || null,
 							pinned: p.Pinned || false
 						},
@@ -115,8 +115,8 @@
 		let html = '<div style="font-family: system-ui, -apple-system, sans-serif;">';
 
 		// Photo — hidden until loaded to prevent layout jump
-		if (props.photoReference) {
-			html += `<img src="/api/photo?ref=${encodeURIComponent(props.photoReference)}&maxWidthPx=280&maxHeightPx=150" style="display:none; width:100%; max-height:120px; object-fit:cover; border-radius:6px; margin-bottom:0.4rem;" alt="" onload="this.style.display='block'" />`;
+		if (props.placeId) {
+			html += `<img src="/api/photo?ref=${encodeURIComponent(props.placeId)}&maxWidthPx=280&maxHeightPx=150" style="display:none; width:100%; max-height:120px; object-fit:cover; border-radius:6px; margin-bottom:0.4rem;" alt="" onload="this.style.display='block'" />`;
 		}
 
 		// Name + stars

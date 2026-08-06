@@ -36,6 +36,7 @@ async function searchPlacesAPI(name, city) {
 	if (!env.GOOGLE_PLACES_API_KEY) return null;
 
 	const fieldMask = [
+		'places.id',
 		'places.displayName',
 		'places.formattedAddress',
 		'places.location',
@@ -73,7 +74,9 @@ async function searchPlacesAPI(name, city) {
 			types: place.types || [],
 			priceLevel: PRICE_LEVEL_MAP[place.priceLevel] || null,
 			hours: place.currentOpeningHours?.weekdayDescriptions?.join('\n') || null,
-			photoReference: place.photos?.[0]?.name || null,
+			// Durable place ID, not the ephemeral photo resource name — photo names
+			// expire and break every stored image (see src/lib/server/photos.js).
+			placeId: place.id || null,
 			editorialSummary: place.editorialSummary?.text || null,
 			websiteUrl: place.websiteUri || null,
 			googleMapsUrl: place.googleMapsUri || null,
@@ -217,7 +220,7 @@ ${contextBlock}`;
 		if (!result.address && placesData.address) {
 			result.address = placesData.address;
 		}
-		result.photoReference = placesData.photoReference || null;
+		result.placeId = placesData.placeId || null;
 		result.hours = placesData.hours || null;
 		result.priceLevel = placesData.priceLevel || null;
 		result.googleRating = placesData.googleRating || null;
