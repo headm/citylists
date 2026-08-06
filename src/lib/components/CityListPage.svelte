@@ -149,7 +149,6 @@ let enriched = $state(null);
 			const fields = {
 				Name: addName.trim(),
 				City: $selectedCity,
-				Mode: enriched.mode || selectedMode,
 				Neighborhood: enriched.neighborhood ? [].concat(enriched.neighborhood) : [],
 				Cuisine: enriched.cuisine ? [].concat(enriched.cuisine) : [],
 				Category: enriched.category || '',
@@ -188,41 +187,15 @@ let enriched = $state(null);
 	}
 
 
-	// --- Mode ---
-	const modes = ['Food & Drink', 'Things to Do', 'All'];
-	let selectedMode = $state('Food & Drink');
-
-	const modeConfig = {
-		'Food & Drink': {
-			groupOptions: ['Neighborhood', 'Category', 'Type'],
-			filterFields: ['Neighborhood', 'Category', 'Type', 'Cuisine'],
-			defaultGroup: 'Neighborhood'
-		},
-		'Things to Do': {
-			groupOptions: ['Neighborhood'],
-			filterFields: ['Neighborhood'],
-			defaultGroup: 'Neighborhood'
-		},
-		'All': {
-			groupOptions: ['Neighborhood'],
-			filterFields: ['Neighborhood'],
-			defaultGroup: 'Neighborhood'
-		}
-	};
-
-	function selectMode(mode) {
-		selectedMode = mode;
-		const config = modeConfig[mode];
-		groupBy = config.defaultGroup;
-		clearFilters();
-	}
-
 	// --- Grouping & Filtering ---
 	let groupBy = $state('Neighborhood');
 	let activeFilters = $state({ Neighborhood: new Set(), Category: new Set(), Type: new Set(), Cuisine: new Set() });
 
-	let currentFilterFields = $derived(modeConfig[selectedMode].filterFields);
-	let currentGroupOptions = $derived(modeConfig[selectedMode].groupOptions);
+	const FILTER_FIELDS = ['Neighborhood', 'Category', 'Type', 'Cuisine'];
+	const GROUP_OPTIONS = ['Neighborhood', 'Category', 'Type'];
+
+	let currentFilterFields = $derived(FILTER_FIELDS);
+	let currentGroupOptions = $derived(GROUP_OPTIONS);
 
 	function getGroupValue(place, field) {
 		const val = place[field];
@@ -270,7 +243,6 @@ let enriched = $state(null);
 	let filteredPlaces = $derived(
 		$places.filter((p) => {
 			if (!p.Name) return false;
-			if (selectedMode !== 'All' && p.Mode !== selectedMode) return false;
 			for (const field of currentFilterFields) {
 				const selected = activeFilters[field];
 				if (!selected || selected.size === 0) continue;
@@ -424,14 +396,6 @@ let enriched = $state(null);
 
 		<div class="controls-wrapper" class:controls-hidden={!controlsVisible} class:controls-settled={controlsSettled}>
 			<div class="controls">
-				<div class="group-by">
-					{#each modes as mode}
-						<button class:active={selectedMode === mode} onclick={() => selectMode(mode)}>
-							{mode}
-						</button>
-					{/each}
-				</div>
-
 				{#if viewMode === 'list'}
 					<div class="group-by-select">
 						<div class="group-by-left">
@@ -578,20 +542,7 @@ let enriched = $state(null);
 				{@const groups = groupedPlaces()}
 				{#each Object.entries(groups) as [group, items]}
 					<h3 class="group-heading">{group}</h3>
-					{#if selectedMode === 'All'}
-						{@const foodItems = items.filter(p => p.Mode === 'Food & Drink')}
-						{@const activityItems = items.filter(p => p.Mode === 'Things to Do')}
-						{#if activityItems.length > 0}
-							<h4 class="subsection-heading">Things to Do</h4>
-							{@render placeList(activityItems)}
-						{/if}
-						{#if foodItems.length > 0}
-							<h4 class="subsection-heading">Food & Drink</h4>
-							{@render placeList(foodItems)}
-						{/if}
-					{:else}
-						{@render placeList(items)}
-					{/if}
+					{@render placeList(items)}
 				{/each}
 			{/if}
 		</section>
@@ -1036,38 +987,15 @@ let enriched = $state(null);
 		min-height: 0;
 	}
 
-	.group-by {
-		display: flex;
-		align-items: center;
-		gap: 0.35rem;
-	}
-
 	.controls .label {
 		font-size: 0.9rem;
 		color: #888;
-	}
-
-	.group-by button {
-		padding: 0.45rem 0.75rem;
-		border: 1px solid #ccc;
-		border-radius: 4px;
-		background: white;
-		color: #333;
-		cursor: pointer;
-		font-size: 0.75rem;
-	}
-
-	.group-by button.active {
-		background: #111;
-		color: white;
-		border-color: #111;
 	}
 
 	.group-by-select {
 		display: flex;
 		align-items: baseline;
 		justify-content: space-between;
-		margin-top: 0.75rem;
 	}
 
 	.group-by-left {
@@ -1213,7 +1141,7 @@ let enriched = $state(null);
 	}
 
 	@media (max-width: 600px) {
-		.group-heading, .subsection-heading {
+		.group-heading {
 			margin-left: calc(-1rem - 8px - env(safe-area-inset-left, 0px));
 			margin-right: calc(-1rem - 8px - env(safe-area-inset-right, 0px));
 			padding-left: calc(1rem + env(safe-area-inset-left, 0px));
@@ -1224,15 +1152,6 @@ let enriched = $state(null);
 	.group-heading {
 		color: #555;
 		background: #f5f5f5;
-	}
-
-	.subsection-heading {
-		font-size: 0.7rem;
-		font-weight: 600;
-		color: #5a7a9b;
-		background: #eef3f8;
-		margin: 0.4rem calc(-1rem - 8px) 0.15rem;
-		padding: 0.25rem 1rem;
 	}
 
 	.compact-list {

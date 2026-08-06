@@ -14,10 +14,7 @@
 		'Tokyo': { lng: 139.69, lat: 35.68, zoom: 11.5 }
 	};
 
-	const MODE_COLORS = {
-		'Food & Drink': '#E07A5F',
-		'Things to Do': '#457B9D'
-	};
+	const PLACE_COLOR = '#E07A5F';
 
 	let mapContainer;
 	let map;
@@ -89,7 +86,6 @@
 							stars: p.Stars || 0,
 							description: p.Description || '',
 							id: p.id,
-							mode: p.Mode || '',
 							cuisine: Array.isArray(p.Cuisine) ? p.Cuisine.join(', ') : (p.Cuisine || ''),
 							category: p.Category || '',
 							type: p.Type || '',
@@ -110,7 +106,6 @@
 	function buildPlacePopupHTML(props) {
 		const stars = props.stars ? ' ' + '*'.repeat(props.stars) : '';
 		const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(props.name + ' ' + city)}`;
-		const modeColor = MODE_COLORS[props.mode] || '#111';
 
 		let html = '<div style="font-family: system-ui, -apple-system, sans-serif;">';
 
@@ -214,7 +209,7 @@
 				data: placesToGeoJSON(places)
 			});
 
-			// Place dots — color-coded by mode
+			// Place dots — pinned places get a distinct color
 			map.addLayer({
 				id: 'unclustered-point',
 				type: 'circle',
@@ -223,11 +218,7 @@
 					'circle-color': [
 						'case',
 						['get', 'pinned'], '#d4a017',
-						['match', ['get', 'mode'],
-							'Food & Drink', '#E07A5F',
-							'Things to Do', '#457B9D',
-							'#111'
-						]
+						PLACE_COLOR
 					],
 					'circle-radius': [
 						'interpolate', ['linear'], ['zoom'],

@@ -20,11 +20,10 @@ const ENRICH_TOOL = {
 			category: { type: 'string', description: 'Category classification' },
 			type: { type: 'string', description: 'Type classification' },
 			stars: { type: 'integer', description: 'Michelin stars (0-3)' },
-			mode: { type: 'string', enum: ['Food & Drink', 'Things to Do'] },
 			address: { type: 'string', description: 'Full street address' },
 			description: { type: 'string', description: 'One sentence, max 160 chars, about what makes this place distinctive' }
 		},
-		required: ['correctedName', 'neighborhood', 'cuisine', 'category', 'type', 'stars', 'mode', 'address', 'description']
+		required: ['correctedName', 'neighborhood', 'cuisine', 'category', 'type', 'stars', 'address', 'description']
 	}
 };
 
@@ -177,7 +176,6 @@ export async function enrichPlace(name, city, fieldOptions = {}) {
 - category: MUST be exactly one of: ${JSON.stringify(categoryOpts)}
 - type: MUST be exactly one of: ${JSON.stringify(typeOpts)}
 - stars: integer 0-3 for Michelin stars. Use 0 if no Michelin stars or unsure.
-- mode: MUST be exactly one of: "Food & Drink", "Things to Do"
 - address: the full street address, e.g. "600 Guerrero St, San Francisco, CA". Use "" if unknown.
 - description: one sentence, max 160 characters, that captures what makes this place distinctive. Do NOT just restate the cuisine or category.
 ${contextBlock}`;

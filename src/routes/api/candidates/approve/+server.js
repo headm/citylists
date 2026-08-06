@@ -37,7 +37,6 @@ export async function POST({ request }) {
 		const fields = {
 			Name: enriched.correctedName || candidate.Name,
 			City: candidate.City,
-			Mode: enriched.mode || 'Food & Drink',
 			Neighborhood: enriched.neighborhood ? [].concat(enriched.neighborhood) : [],
 			Cuisine: enriched.cuisine ? [].concat(enriched.cuisine) : [],
 			Category: enriched.category || '',

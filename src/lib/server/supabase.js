@@ -11,7 +11,6 @@ const supabase = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY);
 const toDb = (fields) => ({
 	name: fields.Name,
 	city: fields.City,
-	mode: fields.Mode,
 	neighborhood: fields.Neighborhood ? [].concat(fields.Neighborhood) : [],
 	cuisine: fields.Cuisine ? [].concat(fields.Cuisine) : [],
 	category: fields.Category ?? '',
@@ -34,7 +33,6 @@ const fromDb = (row) => ({
 	id: row.id,
 	Name: row.name,
 	City: row.city,
-	Mode: row.mode,
 	Neighborhood: row.neighborhood || [],
 	Cuisine: row.cuisine || [],
 	Category: row.category || '',
@@ -110,7 +108,6 @@ export async function updatePlace(id, fields) {
 	const updates = {};
 	if ('Name' in fields) updates.name = fields.Name;
 	if ('City' in fields) updates.city = fields.City;
-	if ('Mode' in fields) updates.mode = fields.Mode;
 	if ('Neighborhood' in fields) updates.neighborhood = [].concat(fields.Neighborhood);
 	if ('Cuisine' in fields) updates.cuisine = [].concat(fields.Cuisine);
 	if ('Category' in fields) updates.category = fields.Category;

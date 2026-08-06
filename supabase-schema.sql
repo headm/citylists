@@ -3,7 +3,6 @@ create table places (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   city text not null,
-  mode text default 'Food & Drink',
   neighborhood text[] default '{}',
   cuisine text[] default '{}',
   category text default '',
